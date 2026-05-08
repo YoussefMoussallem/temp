@@ -357,6 +357,18 @@ export function useChat(
       const token = getToken ? await getToken() : null;
       const agentState = agentStateOverride || clientState;
 
+      // DIAGNOSTIC: trace the post-plan-approval streaming. Remove once
+      // the "no tools/text show during streaming" issue is closed out.
+      const _diag = (label, extra) => {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[edwin-stream] ${label}`,
+          extra ?? "",
+          { hasInput: !!userInput, toolResults: toolResults?.length ?? 0 },
+        );
+      };
+      _diag("enter", { agentState });
+
       try {
         const callbacks = {
           onThinkingDelta: (text) => {
@@ -386,6 +398,7 @@ export function useChat(
             }
           },
           onToolCallStart: ({ name, callId }) => {
+            _diag("tool_call_start", { name, callId, blockCount: blocks.length });
             if (name && !toolNames.includes(name)) toolNames.push(name);
             pushTool(callId, name);
             setStream((s) => ({
@@ -398,6 +411,7 @@ export function useChat(
             }));
           },
           onToolCallDone: ({ callId, name, arguments: args }) => {
+            _diag("tool_call_done", { name, callId });
             if (callId) updateTool(callId, { active: false });
             if (name === "TodoWrite") {
               try {
@@ -441,6 +455,12 @@ export function useChat(
             setClientState((prev) => ({ ...prev, ...state }));
           },
           onTextDelta: (text) => {
+            // Log only on the first delta of a stretch — otherwise every
+            // chunk floods the console.
+            const last = lastBlock();
+            if (!last || last.type !== "text") {
+              _diag("text_delta_first", { preview: text.slice(0, 40) });
+            }
             fullText += text;
             appendText(text);
             setStream((s) => ({ ...s, fullText, blocks: snapshotBlocks() }));
@@ -580,7 +600,9 @@ export function useChat(
         )) {
           handleStreamEvent(event, callbacks);
         }
+        _diag("stream_done_clean", { stopReason, blockCount: blocks.length });
       } catch (err) {
+        _diag("stream_threw", { name: err?.name, message: err?.message });
         if (err.name === "AbortError") {
           aborted = true;
           stopReason = "cancelled";
@@ -868,6 +890,11 @@ export function useChat(
       // unmounts only after the busy/stream slots are already wired
       // up — otherwise there's a single render where neither the
       // plan UI nor the streaming indicator is visible.
+      // eslint-disable-next-line no-console
+      console.log("[edwin-stream] advanceBatch -> setBusy(true)", {
+        toolResultsCount: toolResults.length,
+        modeChange: batch.modeChange,
+      });
       setBusy(true);
       setError(null);
       setStream(INITIAL_STREAM);
