@@ -301,6 +301,12 @@ export function useChat(
       let stopReason = "";
       let aborted = false;
       let assistantMessage = null;
+      // Captured by ``onToolRequest`` mid-stream and consumed in the
+      // post-loop block below. We don't surface the modal until the SSE
+      // generator closes, otherwise the user can Approve while the
+      // backend is still persisting prior-turn rows and the next /turn
+      // races an incomplete history.
+      let deferredToolRequest = null;
 
       // Ordered blocks accumulator. Mutated in place — each callback
       // either (a) appends a new block, or (b) extends the most recent
@@ -441,22 +447,16 @@ export function useChat(
           },
           onToolRequest: (req) => {
             // Phase B envelope: {parallel_calls, sequential_calls,
-            // prior_tool_results}. Flatten into a queue — the user
-            // answers one modal at a time, and parallel_calls just means
-            // no ordering dependency exists. The batch is held in a ref
-            // so submitToolAnswer/submitPlanAnswer can walk it.
-            const queue = [
-              ...(req.parallel_calls || []),
-              ...(req.sequential_calls || []),
-            ];
-            if (queue.length === 0) return;
-            toolBatchRef.current = {
-              queue: queue.slice(1),
-              collected: [],
-              priorResults: req.prior_tool_results || [],
-              modeChange: null,
-            };
-            setPendingToolRequest(queue[0]);
+            // prior_tool_results}. The interactive UI is DEFERRED to
+            // after the for-await loop fully closes — see the
+            // post-loop block below. Surfacing the modal mid-stream
+            // lets the user click Approve while the backend is still
+            // draining post-tool_request persistence; the next turn
+            // then races partially-persisted history and the model
+            // sees a broken prefix → re-enters plan mode. By the time
+            // the for-await loop ends here on the FE, the backend has
+            // finished every persistence write, so it's safe to act.
+            deferredToolRequest = req;
           },
           onAssistantMessage: (message) => { assistantMessage = message; },
           onStateUpdate: (state) => {
@@ -620,6 +620,28 @@ export function useChat(
       }
 
       abortRef.current = null;
+
+      // The SSE for-await loop has fully closed — that means the
+      // backend has finished its post-handoff persistence (the
+      // generator stays open while it awaits each ``_append_with_retry``
+      // call). NOW it's safe to surface the interactive modal: a
+      // user click on Approve will start the next /turn against a
+      // fully-persisted history.
+      if (deferredToolRequest && !aborted) {
+        const queue = [
+          ...(deferredToolRequest.parallel_calls || []),
+          ...(deferredToolRequest.sequential_calls || []),
+        ];
+        if (queue.length > 0) {
+          toolBatchRef.current = {
+            queue: queue.slice(1),
+            collected: [],
+            priorResults: deferredToolRequest.prior_tool_results || [],
+            modeChange: null,
+          };
+          setPendingToolRequest(queue[0]);
+        }
+      }
 
       // Final pass: any thinking block still flagged active (model
       // ended without emitting a non-thinking block after it) gets
