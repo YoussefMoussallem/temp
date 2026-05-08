@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+logs/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+.env.dev
+.env.prod
+# IDE
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Logs
+*.log
+
+# Node (if frontend added later)
+node_modules/
+**.pem
+**.pem
+
+# Template folder
+template/
+BACKEND_DELETIONS.md
+
+# MCP server config (real creds; example lives at server/backend/mcp_servers.example.yaml)
+server/backend/mcp_servers.yaml
+
+# Local scratch / DB dumps / personal backups
+.tmp/
+
+# Edwin runtime (disk-spilled tool_results — see utils/tool_result_storage.py)
+.edwin/
+
+
+# documentation
+docs/

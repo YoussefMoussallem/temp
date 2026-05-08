@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llm-provider"
+version = "0.1.0"
+description = "OpenAI-compatible LLM adapter with streaming and tool support"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.60.0",
+    "pydantic>=2.9.0",
+    "langfuse-client",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_provider"]

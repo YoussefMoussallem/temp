@@ -1,0 +1,42 @@
+# MCP server list.
+#
+# Copy this file to `mcp_servers.yaml` (which is gitignored) and fill in
+# the servers you want the agent to connect to at startup.
+#
+# Supported transports:
+#   - stdio: launches a subprocess that speaks MCP over stdin/stdout.
+#   - http : connects to a remote MCP server over streamable HTTP.
+#
+# `${VAR}` in any string is expanded from the process environment at load time.
+# Missing env vars fail loudly at startup rather than silently running empty.
+
+servers: []
+
+# ── Examples ─────────────────────────────────────────────────────────────────
+#
+# Public test server (no auth, no signup — good for verifying Edwin's MCP
+# pipeline end-to-end without running anything local):
+# servers:
+#   - name: deepwiki
+#     transport: http
+#     url: https://mcp.deepwiki.com/mcp
+#
+# Other examples:
+# servers:
+#   - name: unsplash
+#     transport: stdio
+#     command: uvx
+#     args: [mcp-unsplash]
+#     env:
+#       UNSPLASH_KEY: ${UNSPLASH_KEY}
+#
+#   - name: brand-kit
+#     transport: http
+#     url: https://mcp.example.com/brand
+#     headers:
+#       Authorization: Bearer ${BRAND_MCP_TOKEN}
+#
+#   - name: time
+#     transport: stdio
+#     command: uvx
+#     args: [mcp-server-time]

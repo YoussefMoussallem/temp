@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "edwin-db-service"
+version = "0.1.0"
+description = "Edwin DB microservice — users, usage tracking, auth"
+requires-python = ">=3.11"
+dependencies = [
+    "azure-identity>=1.19.0",
+    "certifi",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "python-dotenv>=1.0.0",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "PyJWT[crypto]>=2.8",
+    "redis>=5.0",
+    "slowapi>=0.1.9",
+    "limits>=4.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

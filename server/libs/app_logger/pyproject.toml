@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "app-logger"
+version = "0.1.0"
+description = "Structured JSON logger with local file and Azure Blob Storage handlers"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.9.0",
+]
+
+[project.optional-dependencies]
+azure = ["azure-storage-blob>=12.0.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/app_logger"]
