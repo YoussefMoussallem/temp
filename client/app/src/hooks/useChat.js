@@ -842,15 +842,13 @@ export function useChat(
       const ctx = turnContextRef.current;
       if (!ctx) return;
 
-      const toolResults = [
-        ...batch.priorResults.map((r) => ({
-          call_id: r.call_id,
-          name: "",
-          output: r.output,
-          success: r.success,
-        })),
-        ...batch.collected,
-      ];
+      // priorResults are tool_results from non-interactive tools that
+      // ran server-side BEFORE the interactive handoff. The backend
+      // already persisted them as a user row that turn — re-submitting
+      // here just inserts a duplicate tool_result row in the
+      // conversation history, polluting the prefix the next model call
+      // sees. Send only the newly collected interactive answers.
+      const toolResults = batch.collected;
 
       let agentStateOverride;
       if (batch.modeChange === "default") {
@@ -909,8 +907,8 @@ export function useChat(
       if (!req || req.tool_name !== "ExitPlanMode") return;
 
       const output = approved
-        ? "approved"
-        : `rejected: ${rejectionReason || "no reason given"}`;
+        ? "User approved your plan. Permission mode is now default — you can call slide-write tools. Execute the plan now: call CreateSlide exactly ONCE per slide listed in your plan markdown, in the order the plan describes. Your TodoWrite items mirror the same slides and are tracking-only — do NOT iterate them as a separate set of work."
+        : `User rejected your plan: ${rejectionReason || "no reason given"}. Stay in plan mode and revise.`;
 
       await advanceBatch(
         {
