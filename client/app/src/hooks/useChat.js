@@ -792,26 +792,31 @@ export function useChat(
       const ctx = { thinking, webSearch };
       turnContextRef.current = ctx;
 
-      const result = await processStream({
-        userInput: text,
-        toolResults: [],
-        ctx,
-        commandUuid,
-        conversationIdOverride: activeConvId,
-      });
+      // try/finally so a thrown ``processStream`` (network blip, server
+      // 5xx, aborted controller) can't leave ``busy`` stuck true and
+      // freeze the input. Same pattern as ``advanceBatch``.
+      try {
+        const result = await processStream({
+          userInput: text,
+          toolResults: [],
+          ctx,
+          commandUuid,
+          conversationIdOverride: activeConvId,
+        });
 
-      appendAssistantToUi(result);
+        appendAssistantToUi(result);
 
-      // /clear is a backend command that truncates the conversation's
-      // messages + Redis cache and resets its token counters. Refetch
-      // the canonical list so local state matches the (now cleared)
-      // server state — the optimistic /clear bubble + the stdout SSE
-      // bubble are replaced by their persisted DB rows.
-      if (cmdName === "clear") {
-        await refetchMessages();
+        // /clear is a backend command that truncates the conversation's
+        // messages + Redis cache and resets its token counters. Refetch
+        // the canonical list so local state matches the (now cleared)
+        // server state — the optimistic /clear bubble + the stdout SSE
+        // bubble are replaced by their persisted DB rows.
+        if (cmdName === "clear") {
+          await refetchMessages();
+        }
+      } finally {
+        setBusy(false);
       }
-
-      setBusy(false);
     },
     [
       conversationId, messages, clientState.model, totalUsage,
@@ -857,21 +862,33 @@ export function useChat(
         setTodos([]);
       }
 
-      toolBatchRef.current = null;
-      setPendingToolRequest(null);
+      // Order matters: flip ``busy`` ON first so the UI shows the
+      // streaming/stop affordances even before the first SSE event
+      // lands. ``setPendingToolRequest(null)`` last so the plan card
+      // unmounts only after the busy/stream slots are already wired
+      // up — otherwise there's a single render where neither the
+      // plan UI nor the streaming indicator is visible.
       setBusy(true);
       setError(null);
       setStream(INITIAL_STREAM);
+      toolBatchRef.current = null;
+      setPendingToolRequest(null);
 
-      const result = await processStream({
-        userInput: null,
-        toolResults,
-        ctx,
-        agentStateOverride,
-      });
-
-      appendAssistantToUi(result);
-      setBusy(false);
+      // try/finally guarantees ``busy`` flips back to false even if
+      // ``processStream`` (or the SSE stream) throws — without this a
+      // server crash mid-stream could leave the input locked on the
+      // stop button forever.
+      try {
+        const result = await processStream({
+          userInput: null,
+          toolResults,
+          ctx,
+          agentStateOverride,
+        });
+        appendAssistantToUi(result);
+      } finally {
+        setBusy(false);
+      }
     },
     [clientState, processStream, appendAssistantToUi],
   );
