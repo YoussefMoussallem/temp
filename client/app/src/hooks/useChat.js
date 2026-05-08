@@ -120,6 +120,14 @@ export function useChat(
 
   const abortRef = useRef(null);
   const turnContextRef = useRef(null);
+  // Monotonic turn id. Incremented at the start of every ``send`` /
+  // ``advanceBatch`` call. The ``finally`` of each handler only resets
+  // ``busy``/state if its own id is still the latest — otherwise a
+  // slow-closing prior stream (e.g. one that's still draining post-
+  // tool_request persistence on the backend after we've already kicked
+  // off the next turn from a plan-approval click) would clobber the
+  // newer turn's busy=true and freeze the streaming UI.
+  const activeStreamRef = useRef(0);
   // Active interactive-tool batch. Holds the pending queue, the results
   // collected so far, and any prior tool_results from the backend so the
   // whole batch is submitted atomically when the last call is answered.
@@ -807,6 +815,7 @@ export function useChat(
           ? { role: "user", content: text, commandUuid, commandState: "pending" }
           : { role: "user", content: text },
       ]);
+      const myStreamId = ++activeStreamRef.current;
       setBusy(true);
       setError(null);
       setStream(INITIAL_STREAM);
@@ -837,7 +846,14 @@ export function useChat(
           await refetchMessages();
         }
       } finally {
-        setBusy(false);
+        // Only clear ``busy`` if no newer turn started after us. The
+        // prior-turn SSE stream can keep iterating well past its useful
+        // payload while the backend persists post-tool_request rows;
+        // when it finally closes here, a newer turn (e.g. plan-approval)
+        // may already be in flight and have already flipped busy=true.
+        if (activeStreamRef.current === myStreamId) {
+          setBusy(false);
+        }
       }
     },
     [
@@ -890,11 +906,7 @@ export function useChat(
       // unmounts only after the busy/stream slots are already wired
       // up — otherwise there's a single render where neither the
       // plan UI nor the streaming indicator is visible.
-      // eslint-disable-next-line no-console
-      console.log("[edwin-stream] advanceBatch -> setBusy(true)", {
-        toolResultsCount: toolResults.length,
-        modeChange: batch.modeChange,
-      });
+      const myStreamId = ++activeStreamRef.current;
       setBusy(true);
       setError(null);
       setStream(INITIAL_STREAM);
@@ -914,7 +926,15 @@ export function useChat(
         });
         appendAssistantToUi(result);
       } finally {
-        setBusy(false);
+        // See the matching guard in ``send`` — only clear busy if we're
+        // still the active turn. The prior turn that handed off the
+        // ExitPlanMode tool_request is typically still draining its SSE
+        // stream while the backend persists; when it eventually closes,
+        // its ``finally`` would wipe our busy=true here without this
+        // check.
+        if (activeStreamRef.current === myStreamId) {
+          setBusy(false);
+        }
       }
     },
     [clientState, processStream, appendAssistantToUi],
