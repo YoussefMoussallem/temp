@@ -21,7 +21,7 @@ export default function ToolUseBlock({ name, active = false, progress = null }) 
     : "";
 
   return (
-    <div className={`inline-flex items-center gap-1.5 mb-1.5 text-[11px] italic
+    <div className={`flex items-center gap-1.5 mb-1.5 text-[11px] italic
       ${active ? "text-brand" : "text-gray-400"}`}
     >
       {active
