@@ -270,6 +270,11 @@ export function chatReducer(state, action) {
         stream: INITIAL_STREAM,
         totalUsage: INITIAL_TOTAL_USAGE,
         todos: [],
+        // /clear and history refetch land here; this is the natural
+        // closer of any in-flight history load, so clearing the flag
+        // saves callers a follow-up HYDRATE_HISTORY_DONE that would
+        // race a stale stateRef snapshot.
+        loadingHistory: false,
       };
 
     case A.MESSAGES_PREPEND:

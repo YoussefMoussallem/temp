@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import * as api from "../api";
-import { streamTurn } from "../agent/client.js";
-import { handleStreamEvent } from "../agent/streamHandler.js";
 import { rowToUiMessage } from "../agent/messageBuilders.js";
 import {
   buildAndDownloadDomPptx,
@@ -12,47 +10,15 @@ import {
   findCommand,
   findClientHandler,
 } from "../commands/index.js";
-
-const INITIAL_STREAM = {
-  thinkingText: "",
-  searches: [],
-  toolCalls: [],
-  fullText: "",
-  usage: null,
-  stopReason: "",
-  // Ordered blocks for arrival-order rendering. Each entry is
-  // { type: "thinking"|"search"|"tool"|"text", ...payload }. The
-  // legacy fields above are kept for backward-compat / final assistant
-  // meta but the chat UI now reads from ``blocks``. See MessageBlocks
-  // for the renderer.
-  blocks: [],
-};
-
-const INITIAL_CLIENT_STATE = {
-  model: "",
-  iteration: 0,
-  extra: {},
-  permission_mode: "default",
-};
-
-const INITIAL_TOTAL_USAGE = { inputTokens: 0, outputTokens: 0, requests: 0 };
+import {
+  chatReducer,
+  compactWarningVisible as selectCompactWarningVisible,
+  INITIAL_STATE,
+  A,
+} from "../agent/chatReducer.js";
+import { runTurn } from "../agent/agentLoop.js";
 
 const planModeKey = (convId) => `edwin.plan_mode.${convId}`;
-
-const LOCAL_STDOUT_RE = /^<local-command-stdout>([\s\S]*)<\/local-command-stdout>$/;
-
-// Concat the .text fields of an Anthropic-style content-block list.
-// The backend's user_message SSE event always carries content as
-// `[{type:"text", text:"..."}]` (loop shape — sent on as-is to the model),
-// but the UI renders a single string. Mirrors the helper in messageBuilders.js.
-function extractTextFromContent(content) {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .filter((b) => b && (b.type === "text" || typeof b === "string"))
-    .map((b) => (typeof b === "string" ? b : b.text ?? ""))
-    .join("");
-}
 
 // Reconcile plan mode from localStorage, falling back to scanning recent
 // messages for EnterPlanMode/ExitPlanMode tool_use blocks. The last such
@@ -97,41 +63,24 @@ export function useChat(
     onSetConversationTitle = null,
   } = {},
 ) {
-  const [messages, setMessages] = useState([]);
-  const [clientState, setClientState] = useState(INITIAL_CLIENT_STATE);
-  const [busy, setBusy] = useState(false);
-  const [stream, setStream] = useState(INITIAL_STREAM);
-  const [error, setError] = useState(null);
-  const [totalUsage, setTotalUsage] = useState(INITIAL_TOTAL_USAGE);
-  const [pendingToolRequest, setPendingToolRequest] = useState(null);
-  const [todos, setTodos] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  // Phase 3.6 — compaction surface state.
-  //
-  // ``compactWarning``     latest WarningState received via SSE
-  //                        compact_warning event. null = none seen yet.
-  // ``warningDismissedAt`` fill_pct at which the user clicked × on the
-  //                        banner. The banner re-arms when the next
-  //                        warning's fill_pct exceeds this — matches
-  //                        source's "re-shown on next threshold cross"
-  //                        requirement. Null means "never dismissed".
-  const [compactWarning, setCompactWarning] = useState(null);
-  const [warningDismissedAt, setWarningDismissedAt] = useState(null);
+  const [state, dispatch] = useReducer(chatReducer, INITIAL_STATE);
 
+  // A live ref of state so callbacks invoked deep inside agentLoop can
+  // read the LATEST clientState without re-creating closures on every
+  // reducer update. The loop reads from ``getAgentState()``; we point
+  // it at this ref.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // The active turn's AbortController. ``stop`` aborts it; the loop's
+  // signal-aborted check stops the while loop cleanly.
   const abortRef = useRef(null);
-  const turnContextRef = useRef(null);
-  // Monotonic turn id. Incremented at the start of every ``send`` /
-  // ``advanceBatch`` call. The ``finally`` of each handler only resets
-  // ``busy``/state if its own id is still the latest — otherwise a
-  // slow-closing prior stream (e.g. one that's still draining post-
-  // tool_request persistence on the backend after we've already kicked
-  // off the next turn from a plan-approval click) would clobber the
-  // newer turn's busy=true and freeze the streaming UI.
-  const activeStreamRef = useRef(0);
-  // Active interactive-tool batch. Holds the pending queue, the results
-  // collected so far, and any prior tool_results from the backend so the
-  // whole batch is submitted atomically when the last call is answered.
-  const toolBatchRef = useRef(null);
+
+  // Resolve fn for whichever interactive tool_request the agent loop is
+  // currently awaiting. ``submitToolAnswer`` / ``submitPlanAnswer``
+  // call this to unblock the loop. Cleared between calls.
+  const pendingResolveRef = useRef(null);
+
   // ID of a conversation we just created in this same call to ``send``
   // (auto-create flow). The load-history useEffect below uses this to
   // skip the GET /messages round-trip — the conversation is empty by
@@ -144,10 +93,7 @@ export function useChat(
   useEffect(() => {
     let cancelled = false;
     if (!conversationId) {
-      setMessages([]);
-      setClientState(INITIAL_CLIENT_STATE);
-      setStream(INITIAL_STREAM);
-      setError(null);
+      dispatch({ type: A.CONVERSATION_RESET });
       return () => { cancelled = true; };
     }
     // Auto-create flow: this conversation was just minted in ``send``
@@ -160,23 +106,26 @@ export function useChat(
       return () => { cancelled = true; };
     }
     (async () => {
-      setLoadingHistory(true);
-      setError(null);
+      dispatch({ type: A.HYDRATE_HISTORY_START });
       try {
         const token = getToken ? await getToken() : null;
         const rows = await api.getMessages(token, conversationId);
         if (cancelled) return;
         const ui = rows.map(rowToUiMessage).filter(Boolean);
-        setMessages(ui);
         const mode = derivePlanMode(conversationId, rows);
-        setClientState({ ...INITIAL_CLIENT_STATE, permission_mode: mode });
-        setStream(INITIAL_STREAM);
+        dispatch({
+          type: A.HYDRATE_HISTORY_DONE,
+          payload: { messages: ui, permission_mode: mode },
+        });
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to load history");
+          dispatch({
+            type: A.HYDRATE_HISTORY_ERROR,
+            payload: {
+              message: e instanceof Error ? e.message : "Failed to load history",
+            },
+          });
         }
-      } finally {
-        if (!cancelled) setLoadingHistory(false);
       }
     })();
     return () => { cancelled = true; };
@@ -186,76 +135,21 @@ export function useChat(
   useEffect(() => {
     if (!conversationId) return;
     try {
-      localStorage.setItem(planModeKey(conversationId), clientState.permission_mode);
+      localStorage.setItem(
+        planModeKey(conversationId),
+        state.clientState.permission_mode,
+      );
     } catch { /* ignore storage quota */ }
-  }, [conversationId, clientState.permission_mode]);
+  }, [conversationId, state.clientState.permission_mode]);
+
+  // ── Public helpers — small wrappers around dispatch ────────────────
 
   const clear = useCallback(() => {
-    setMessages([]);
-    setClientState(INITIAL_CLIENT_STATE);
-    setStream(INITIAL_STREAM);
-    setError(null);
-    setTotalUsage(INITIAL_TOTAL_USAGE);
-    setTodos([]);
-    // Reset the warning surface — emptying the conversation drops
-    // token count to ~0; subsequent turns recompute fresh state.
-    setCompactWarning(null);
-    setWarningDismissedAt(null);
+    dispatch({ type: A.CLEAR_CONVERSATION });
   }, []);
 
-  // Dismiss the warning banner. Records the fill_pct at dismissal
-  // time so a future warning that crosses a higher fill level un-
-  // dismisses (matches source's "re-shown on next threshold cross").
   const dismissCompactWarning = useCallback(() => {
-    const fillAtDismiss = compactWarning?.fill_pct ?? 0;
-    setWarningDismissedAt(fillAtDismiss);
-  }, [compactWarning]);
-
-  // Computed: should the banner show right now? True when:
-  //   1. We have a warning state from the backend, AND
-  //   2. The state itself says should_show, AND
-  //   3. Either we've never been dismissed, OR the fill_pct has
-  //      crossed higher than where we were dismissed (re-arm).
-  const compactWarningVisible = !!(
-    compactWarning?.should_show &&
-    (warningDismissedAt === null
-      || (compactWarning.fill_pct ?? 0) > warningDismissedAt)
-  );
-
-  // Re-pull the conversation's canonical message list from the backend.
-  // Called by `send` after a successful `/clear` (backend truncates DB +
-  // Redis; the FE has to reset to whatever the new persisted state is —
-  // typically just the /clear input + its "Conversation cleared." stdout).
-  // We keep clientState.permission_mode so plan mode survives a clear.
-  const refetchMessages = useCallback(async () => {
-    if (!conversationId) return;
-    setLoadingHistory(true);
-    setError(null);
-    try {
-      const token = getToken ? await getToken() : null;
-      const rows = await api.getMessages(token, conversationId);
-      const ui = rows.map(rowToUiMessage).filter(Boolean);
-      setMessages(ui);
-      setStream(INITIAL_STREAM);
-      setTotalUsage(INITIAL_TOTAL_USAGE);
-      setTodos([]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to refetch history");
-    } finally {
-      setLoadingHistory(false);
-    }
-  }, [conversationId, getToken]);
-
-  const dispatch = useCallback((action) => {
-    // Legacy hook — MESSAGES_REPLACED used to rewrite clientState.messages,
-    // which no longer exists. Keeping the dispatch shape for command compat.
-    switch (action.type) {
-      case "MESSAGES_REPLACED": {
-        const newMessages = action.payload.messages || [];
-        setMessages(newMessages.map((m) => ({ role: m.role, content: m.content })));
-        break;
-      }
-    }
+    dispatch({ type: A.COMPACT_WARNING_DISMISS });
   }, []);
 
   const stop = useCallback(() => {
@@ -263,453 +157,140 @@ export function useChat(
       abortRef.current.abort();
       abortRef.current = null;
     }
+    // If the loop was parked awaiting interactive input, free it too —
+    // otherwise the abort wouldn't unstick the user-facing modal.
+    if (pendingResolveRef.current) {
+      pendingResolveRef.current({ results: [], modeChange: null, aborted: true });
+      pendingResolveRef.current = null;
+    }
   }, []);
 
-  // ── Shared stream processor ────────────────────────────────────────
-  //
-  // All three turn entry points (send, submitToolAnswer, submitPlanAnswer)
-  // share the same SSE loop — only the inputs (userInput vs toolResults)
-  // and the optimistic UI append differ. This factors out the event
-  // switch and returns the accumulated result.
-  const processStream = useCallback(
-    async ({
-      userInput,
-      toolResults,
-      ctx,
-      agentStateOverride,
-      commandUuid = null,
-      // Auto-create override. When ``send`` has just minted a
-      // conversation, the React state hasn't propagated yet, so the
-      // closure-captured ``conversationId`` is still ``null``. Callers
-      // pass the freshly-created id explicitly here; we fall back to
-      // the closure for the steady-state path.
-      conversationIdOverride = null,
-    }) => {
-      const activeConvId = conversationIdOverride || conversationId;
-      if (!activeConvId) {
-        throw new Error("No active conversation");
-      }
-
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      let fullText = "";
-      let thinkingText = "";
-      const searches = [];
-      const toolNames = [];
-      let usage = null;
-      let stopReason = "";
-      let aborted = false;
-      let assistantMessage = null;
-      // Captured by ``onToolRequest`` mid-stream and consumed in the
-      // post-loop block below. We don't surface the modal until the SSE
-      // generator closes, otherwise the user can Approve while the
-      // backend is still persisting prior-turn rows and the next /turn
-      // races an incomplete history.
-      let deferredToolRequest = null;
-
-      // Ordered blocks accumulator. Mutated in place — each callback
-      // either (a) appends a new block, or (b) extends the most recent
-      // block of the same kind (for streaming text/thinking deltas), or
-      // (c) finds a tool/search block by id to flip active/result.
-      // ``setStream`` slices it out so React sees a new array ref.
-      const blocks = [];
-      const lastBlock = () => (blocks.length ? blocks[blocks.length - 1] : null);
-      const appendThinking = (text) => {
-        const last = lastBlock();
-        if (last && last.type === "thinking" && last.active) {
-          last.text += text;
-        } else {
-          blocks.push({ type: "thinking", text, active: true });
-        }
-      };
-      const appendText = (text) => {
-        const last = lastBlock();
-        if (last && last.type === "text") {
-          last.text += text;
-        } else {
-          blocks.push({ type: "text", text });
-        }
-      };
-      const sealOpenStreaming = () => {
-        // Mark any in-flight thinking block as done — the model has
-        // moved on to a different block kind, so we shouldn't keep
-        // appending thinking deltas to it.
-        for (const b of blocks) {
-          if (b.type === "thinking" && b.active) b.active = false;
-        }
-      };
-      const pushSearch = (query) => {
-        sealOpenStreaming();
-        const id = `s${blocks.length}`;
-        blocks.push({ type: "search", id, query, result: "", active: true });
-        return id;
-      };
-      const finishLastActiveSearch = (result) => {
-        for (let i = blocks.length - 1; i >= 0; i--) {
-          if (blocks[i].type === "search" && blocks[i].active) {
-            blocks[i].active = false;
-            blocks[i].result = result;
-            return;
-          }
-        }
-      };
-      const pushTool = (id, name) => {
-        sealOpenStreaming();
-        blocks.push({ type: "tool", id, name, active: true, progress: null });
-      };
-      const updateTool = (id, patch) => {
-        for (const b of blocks) {
-          if (b.type === "tool" && b.id === id) {
-            Object.assign(b, patch);
-            return;
-          }
-        }
-      };
-      const snapshotBlocks = () => blocks.map((b) => ({ ...b }));
-
+  // Re-pull the conversation's canonical message list from the backend.
+  // Called by ``send`` after a successful ``/clear`` (backend truncates DB +
+  // Redis; the FE has to reset to whatever the new persisted state is —
+  // typically just the /clear input + its "Conversation cleared." stdout).
+  // We keep clientState.permission_mode so plan mode survives a clear.
+  const refetchMessages = useCallback(async () => {
+    if (!conversationId) return;
+    dispatch({ type: A.HYDRATE_HISTORY_START });
+    try {
       const token = getToken ? await getToken() : null;
-      const agentState = agentStateOverride || clientState;
-
-      // DIAGNOSTIC: trace the post-plan-approval streaming. Remove once
-      // the "no tools/text show during streaming" issue is closed out.
-      const _diag = (label, extra) => {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[edwin-stream] ${label}`,
-          extra ?? "",
-          { hasInput: !!userInput, toolResults: toolResults?.length ?? 0 },
-        );
-      };
-      _diag("enter", { agentState });
-
-      try {
-        const callbacks = {
-          onThinkingDelta: (text) => {
-            thinkingText += text;
-            appendThinking(text);
-            setStream((s) => ({ ...s, thinkingText, blocks: snapshotBlocks() }));
-          },
-          onSearchStart: (query) => {
-            searches.push({ active: true, query, result: "" });
-            pushSearch(query);
-            setStream((s) => ({
-              ...s,
-              searches: [...searches],
-              blocks: snapshotBlocks(),
-            }));
-          },
-          onSearchDone: (result) => {
-            if (searches.length > 0) {
-              searches[searches.length - 1].active = false;
-              searches[searches.length - 1].result = result;
-              finishLastActiveSearch(result);
-              setStream((s) => ({
-                ...s,
-                searches: [...searches],
-                blocks: snapshotBlocks(),
-              }));
-            }
-          },
-          onToolCallStart: ({ name, callId }) => {
-            _diag("tool_call_start", { name, callId, blockCount: blocks.length });
-            if (name && !toolNames.includes(name)) toolNames.push(name);
-            pushTool(callId, name);
-            setStream((s) => ({
-              ...s,
-              toolCalls: [
-                ...s.toolCalls.map((tc) => ({ ...tc, active: false })),
-                { id: callId, name, active: true },
-              ],
-              blocks: snapshotBlocks(),
-            }));
-          },
-          onToolCallDone: ({ callId, name, arguments: args }) => {
-            _diag("tool_call_done", { name, callId });
-            if (callId) updateTool(callId, { active: false });
-            if (name === "TodoWrite") {
-              try {
-                const todoArgs = JSON.parse(args || "{}");
-                if (Array.isArray(todoArgs.todos)) setTodos(todoArgs.todos);
-              } catch { /* ignore */ }
-            }
-            setStream((s) => ({ ...s, blocks: snapshotBlocks() }));
-          },
-          onToolProgress: (toolUseId, progress) => {
-            updateTool(toolUseId, { progress });
-            setStream((s) => ({
-              ...s,
-              toolCalls: s.toolCalls.map((tc) =>
-                tc.id === toolUseId ? { ...tc, progress } : tc,
-              ),
-              blocks: snapshotBlocks(),
-            }));
-          },
-          onToolRequest: (req) => {
-            // Phase B envelope: {parallel_calls, sequential_calls,
-            // prior_tool_results}. The interactive UI is DEFERRED to
-            // after the for-await loop fully closes — see the
-            // post-loop block below. Surfacing the modal mid-stream
-            // lets the user click Approve while the backend is still
-            // draining post-tool_request persistence; the next turn
-            // then races partially-persisted history and the model
-            // sees a broken prefix → re-enters plan mode. By the time
-            // the for-await loop ends here on the FE, the backend has
-            // finished every persistence write, so it's safe to act.
-            deferredToolRequest = req;
-          },
-          onAssistantMessage: (message) => { assistantMessage = message; },
-          onStateUpdate: (state) => {
-            setClientState((prev) => ({ ...prev, ...state }));
-          },
-          onTextDelta: (text) => {
-            // Log only on the first delta of a stretch — otherwise every
-            // chunk floods the console.
-            const last = lastBlock();
-            if (!last || last.type !== "text") {
-              _diag("text_delta_first", { preview: text.slice(0, 40) });
-            }
-            fullText += text;
-            appendText(text);
-            setStream((s) => ({ ...s, fullText, blocks: snapshotBlocks() }));
-          },
-          onText: (text) => {
-            fullText = text;
-            // Replace the trailing text block (or push a new one).
-            // ``onText`` is a full snapshot — used by some events that
-            // emit whole-text rather than deltas. We only ever want
-            // one trailing text block reflecting the latest snapshot.
-            const last = lastBlock();
-            if (last && last.type === "text") {
-              last.text = text;
-            } else {
-              blocks.push({ type: "text", text });
-            }
-            setStream((s) => ({ ...s, fullText, blocks: snapshotBlocks() }));
-          },
-          onDone: ({ usage: u, stopReason: sr }) => {
-            usage = u;
-            stopReason = sr;
-            setStream((s) => ({ ...s, usage, stopReason }));
-            if (u) {
-              setTotalUsage((prev) => ({
-                inputTokens: prev.inputTokens + (u.input_tokens || 0),
-                outputTokens: prev.outputTokens + (u.output_tokens || 0),
-                requests: prev.requests + 1,
-              }));
-            }
-          },
-          onError: (message) => setError(message),
-          onSlideEvent: (type, data) => onSlideEvent?.(type, data),
-          onDeckExportReady: (data) => {
-            // Backend converted every slide → pptxgenjs spec and shipped
-            // the deck spec on this event. Build and trigger download in
-            // the browser. Run async (don't block the SSE loop) and
-            // surface failures via setError — pptxgenjs.writeFile uses a
-            // synthetic <a> click which most browsers permit because the
-            // turn was triggered by the user's message a few seconds ago.
-            (async () => {
-              try {
-                await buildAndDownloadPptx(data?.deck);
-              } catch (e) {
-                setError(
-                  e instanceof Error
-                    ? `Failed to build .pptx: ${e.message}`
-                    : "Failed to build .pptx",
-                );
-              }
-            })();
-          },
-          onDeckExportDomReady: (data) => {
-            // ExportDeckDom backend tool shipped raw slide HTML on this
-            // event. Mount each slide off-screen and run the DOM-driven
-            // pptx exporter against the live DOM (no per-slide LLM
-            // conversion). Same async / error-surface pattern as the
-            // LLM-converter path above.
-            (async () => {
-              try {
-                await buildAndDownloadDomPptx({
-                  slides: data?.slides || [],
-                  filename: data?.filename || "presentation-dom.pptx",
-                });
-              } catch (e) {
-                setError(
-                  e instanceof Error
-                    ? `Failed to build DOM .pptx: ${e.message}`
-                    : "Failed to build DOM .pptx",
-                );
-              }
-            })();
-          },
-          onCommandLifecycle: (uuid, state) => {
-            // Update the optimistic user-command bubble with started/completed.
-            // Keyed on command_uuid attached to the bubble at send-time.
-            setMessages((prev) => prev.map((m) =>
-              m.commandUuid === uuid
-                ? { ...m, commandState: state }
-                : m,
-            ));
-          },
-          onUserMessage: (message) => {
-            // Local-command short-circuit: backend streams two user_message
-            // events — (1) an echo of the raw slash input, then (2) the
-            // command's stdout wrapped in <local-command-stdout>...</local-command-stdout>.
-            // We drop (1) because the optimistic command bubble already
-            // shows the user's typed input, and we strip the wrapper from
-            // (2) before storing as plain text for the markdown renderer.
-            if (!message) return;
-            const text = extractTextFromContent(message.content);
-            const stdoutMatch = LOCAL_STDOUT_RE.exec(text);
-            if (!stdoutMatch) return;
-            setMessages((prev) => [
-              ...prev,
-              { role: "system", content: stdoutMatch[1], raw: message },
-            ]);
-          },
-          onCompactBoundary: (boundary) => {
-            // Inject inline as a special-role message between the user's
-            // input and the assistant's response. The backend ALSO
-            // persists the same boundary as a system-role row (see
-            // utils/compact_boundary_marker.py), so on the next
-            // refetch / hard reload the divider re-appears via
-            // rowToUiMessage. Inserting it optimistically here means
-            // the user sees the divider immediately without waiting
-            // for a refetch round-trip.
-            if (!boundary) return;
-            setMessages((prev) => [
-              ...prev,
-              { role: "compact-boundary", boundary },
-            ]);
-          },
-          onCompactWarning: (warning) => {
-            // Update the latest warning state. The banner's visibility
-            // is computed from this + warningDismissedAt — see
-            // ``compactWarningVisible`` above.
-            if (!warning) return;
-            setCompactWarning(warning);
-            // If this warning's fill_pct is *higher* than where the user
-            // last dismissed, re-arm the dismissal so the banner shows.
-            // Lower or equal fill stays dismissed — only crossing higher
-            // re-shows it.
-            setWarningDismissedAt((prev) =>
-              prev !== null && (warning.fill_pct ?? 0) > prev ? null : prev,
-            );
-          },
-        };
-
-        for await (const event of streamTurn(
-          { conversationId: activeConvId, projectId, agentState, userInput, toolResults, commandUuid },
-          {
-            thinking: ctx.thinking,
-            webSearch: ctx.webSearch,
-            signal: controller.signal,
-            token,
-          },
-        )) {
-          handleStreamEvent(event, callbacks);
-        }
-        _diag("stream_done_clean", { stopReason, blockCount: blocks.length });
-      } catch (err) {
-        _diag("stream_threw", { name: err?.name, message: err?.message });
-        if (err.name === "AbortError") {
-          aborted = true;
-          stopReason = "cancelled";
-        } else {
-          setError(err instanceof Error ? err.message : "Network error");
-        }
-      }
-
-      abortRef.current = null;
-
-      // The SSE for-await loop has fully closed — that means the
-      // backend has finished its post-handoff persistence (the
-      // generator stays open while it awaits each ``_append_with_retry``
-      // call). NOW it's safe to surface the interactive modal: a
-      // user click on Approve will start the next /turn against a
-      // fully-persisted history.
-      if (deferredToolRequest && !aborted) {
-        const queue = [
-          ...(deferredToolRequest.parallel_calls || []),
-          ...(deferredToolRequest.sequential_calls || []),
-        ];
-        if (queue.length > 0) {
-          toolBatchRef.current = {
-            queue: queue.slice(1),
-            collected: [],
-            priorResults: deferredToolRequest.prior_tool_results || [],
-            modeChange: null,
-          };
-          setPendingToolRequest(queue[0]);
-        }
-      }
-
-      // Final pass: any thinking block still flagged active (model
-      // ended without emitting a non-thinking block after it) gets
-      // sealed so the persisted view doesn't show a "still thinking"
-      // spinner forever.
-      sealOpenStreaming();
-
-      return {
-        fullText,
-        thinkingText,
-        searches,
-        toolNames,
-        usage,
-        stopReason,
-        aborted,
-        assistantMessage,
-        blocks: snapshotBlocks(),
-      };
-    },
-    [conversationId, projectId, clientState, getToken, onSlideEvent],
-  );
-
-  // Append the assistant UI bubble after a stream finishes.
-  const appendAssistantToUi = useCallback(
-    ({ fullText, assistantMessage, thinkingText, searches, toolNames, usage, aborted, blocks }) => {
-      if (!fullText && !assistantMessage) return;
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: fullText,
-          meta: {
-            thinkingText: thinkingText || undefined,
-            searches: searches.length
-              ? searches.map((s) => ({ query: s.query, result: s.result }))
-              : undefined,
-            toolNames: toolNames.length ? [...toolNames] : undefined,
-            usage: usage || undefined,
-            cancelled: aborted || undefined,
-            raw: assistantMessage?.content,
-            // Ordered blocks captured at stream-end time. Lets the
-            // post-stream AssistantMessage render keep the same
-            // arrival-order layout the user just saw stream live —
-            // no flicker / re-grouping when the spinner hands off
-            // to the persisted bubble.
-            blocks: blocks && blocks.length ? blocks : undefined,
-          },
+      const rows = await api.getMessages(token, conversationId);
+      const ui = rows.map(rowToUiMessage).filter(Boolean);
+      // MESSAGES_REPLACE itself clears loadingHistory — no follow-up.
+      dispatch({ type: A.MESSAGES_REPLACE, payload: { messages: ui } });
+    } catch (e) {
+      dispatch({
+        type: A.HYDRATE_HISTORY_ERROR,
+        payload: {
+          message: e instanceof Error ? e.message : "Failed to refetch history",
         },
-      ]);
-      setClientState((prev) => ({ ...prev, iteration: prev.iteration + 1 }));
+      });
+    }
+  }, [conversationId, getToken]);
+
+  // ── Interactive tool bridge — agentLoop ↔ user-action handlers ────
+
+  // The loop calls this with the tool_request envelope it captured.
+  // We dispatch each interactive call into pendingToolRequest so the
+  // matching UI (ExitPlanModeUI / AskUserQuestionUI) renders, then
+  // park on a promise that the user-action handler resolves. Stays
+  // here (rather than agentLoop.js) because it needs access to the
+  // pendingResolveRef.
+  const awaitInteractive = useCallback(async (toolRequest) => {
+    const queue = [
+      ...(toolRequest?.parallel_calls || []),
+      ...(toolRequest?.sequential_calls || []),
+    ];
+    if (queue.length === 0) {
+      return { results: [], modeChange: null };
+    }
+
+    const collected = [];
+    let modeChange = null;
+
+    for (const call of queue) {
+      dispatch({ type: A.TOOL_REQUEST_SET, payload: { req: call } });
+
+      // Promise resolved by submitToolAnswer / submitPlanAnswer / stop.
+      const answer = await new Promise((resolve) => {
+        pendingResolveRef.current = resolve;
+      });
+      pendingResolveRef.current = null;
+      dispatch({ type: A.TOOL_REQUEST_CLEAR });
+
+      if (answer?.aborted) {
+        return { results: collected, modeChange, aborted: true };
+      }
+      if (answer?.result) collected.push(answer.result);
+      if (answer?.modeChange) modeChange = answer.modeChange;
+    }
+
+    return { results: collected, modeChange };
+  }, []);
+
+  // Slash commands' client-execution short-circuit. Kept as a separate
+  // path because these never POST /turn — they run locally and either
+  // print a system bubble (text result) or chain into a prompt-expansion
+  // send (prompt result).
+  const runClientSlashCommand = useCallback(
+    async (cmdName, cmdArgs, { thinking, webSearch }) => {
+      const handler = findClientHandler(cmdName);
+      if (!handler) {
+        dispatch({
+          type: A.ERROR_SET,
+          payload: { message: `No client handler registered for /${cmdName}` },
+        });
+        return null;
+      }
+      try {
+        const mod = await handler.load();
+        const token = getToken ? await getToken() : null;
+        const context = {
+          token,
+          backendMessages: stateRef.current.messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          model: stateRef.current.clientState.model,
+          totalUsage: stateRef.current.totalUsage,
+          dispatch: () => {},  // legacy hook, no longer used
+          clearMessages: clear,
+        };
+        const result = await mod.call(cmdArgs, context);
+        if (result?.type === "text" && result.value) {
+          dispatch({
+            type: A.USER_MESSAGE_APPEND,
+            payload: {
+              message: {
+                role: "system",
+                content: result.value,
+                command: result.command || null,
+                data: result.data || null,
+              },
+            },
+          });
+          return { type: "text" };
+        }
+        if (result?.type === "prompt") {
+          return { type: "prompt", value: result.value, thinking, webSearch };
+        }
+        return null;
+      } catch (err) {
+        dispatch({
+          type: A.ERROR_SET,
+          payload: { message: err instanceof Error ? err.message : "Command failed" },
+        });
+        return null;
+      }
     },
-    [],
+    [getToken, clear],
   );
 
   // ── Public API: send a user message ─────────────────────────────────
-  // Model selection (main / search) is admin-managed on the backend;
-  // the frontend no longer chooses one. ``thinking`` and ``webSearch``
-  // remain per-turn user toggles.
   const send = useCallback(
     async (text, { thinking = false, webSearch = true } = {}) => {
-      // Auto-create on first message. When the user has no active
-      // conversation but the project + auto-create wiring is present,
-      // we mint one ("New chat" placeholder), set it active, fire
-      // backend title generation in parallel, and proceed with the
-      // send flow against the freshly-created id. We only auto-create
-      // for natural-language input — slash commands are advanced
-      // controls and should error explicitly if there's no
-      // conversation, rather than spawning an empty sidebar entry.
+      // Auto-create on first message — non-slash only.
       let activeConvId = conversationId;
       if (!activeConvId) {
         const isSlashEarly = isSlashCommand(text);
@@ -718,28 +299,35 @@ export function useChat(
           typeof onCreateConversation === "function" &&
           typeof onSetActiveConversation === "function";
         if (!canAutoCreate) {
-          setError("No active conversation");
+          dispatch({
+            type: A.ERROR_SET,
+            payload: { message: "No active conversation" },
+          });
           return;
         }
         try {
           const conv = await onCreateConversation("New chat");
           if (!conv?.id) {
-            setError("Failed to create conversation");
+            dispatch({
+              type: A.ERROR_SET,
+              payload: { message: "Failed to create conversation" },
+            });
             return;
           }
           activeConvId = conv.id;
-          // Mark this id so the load-history useEffect skips its
-          // GET /messages round-trip when conversationId catches up.
           freshlyCreatedConvIdRef.current = activeConvId;
           onSetActiveConversation(activeConvId);
         } catch (e) {
-          setError(e instanceof Error ? e.message : "Failed to create conversation");
+          dispatch({
+            type: A.ERROR_SET,
+            payload: {
+              message: e instanceof Error ? e.message : "Failed to create conversation",
+            },
+          });
           return;
         }
 
-        // Title generation in parallel. Doesn't block sending — the
-        // chat works fine with the placeholder; the title catches up
-        // a few seconds later. Failures swallowed (best-effort).
+        // Title generation in parallel — best-effort.
         (async () => {
           try {
             const token = getToken ? await getToken() : null;
@@ -755,15 +343,7 @@ export function useChat(
         })();
       }
 
-      // Slash command dispatch. Backend is the canonical registry.
-      //   - execution: "server" → send raw /cmd to backend via /turn with a
-      //     command_uuid; backend expands prompt-type commands and runs
-      //     local-type ones itself. Falls through to normal send below.
-      //   - execution: "client" → look up the local handler by name and
-      //     run it client-side (no /turn call).
-      //
-      // cmdName is hoisted so post-send hooks (e.g. /clear refetch) can
-      // branch on it without re-parsing the input string.
+      // Slash command dispatch
       const isSlash = isSlashCommand(text);
       let cmdName = null;
       let cmdArgs = "";
@@ -779,194 +359,86 @@ export function useChat(
         const execution = cmd?.execution ?? (cmd?.type === "prompt" ? "server" : null);
 
         if (cmd && execution === "client") {
-          const handler = findClientHandler(cmdName);
-          if (handler) {
-            setBusy(true);
-            setError(null);
-            try {
-              const mod = await handler.load();
-              const token = getToken ? await getToken() : null;
-              const context = {
-                token,
-                backendMessages: messages.map((m) => ({ role: m.role, content: m.content })),
-                model: clientState.model,
-                totalUsage,
-                dispatch,
-                clearMessages: clear,
-              };
-              const result = await mod.call(cmdArgs, context);
-              if (result?.type === "text" && result.value) {
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    role: "system",
-                    content: result.value,
-                    command: result.command || null,
-                    data: result.data || null,
-                  },
-                ]);
-              } else if (result?.type === "prompt") {
-                setBusy(false);
-                return send(result.value, { thinking, webSearch });
-              }
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Command failed");
-            }
-            setBusy(false);
-            return;
+          const result = await runClientSlashCommand(cmdName, cmdArgs, { thinking, webSearch });
+          if (result?.type === "prompt") {
+            return send(result.value, { thinking, webSearch });
           }
-          // No client handler found for a client-execution command.
-          setError(`No client handler registered for /${cmdName}`);
           return;
         }
-
-        // execution === "server" OR unknown command → fall through to /turn.
-        // The existing slash-fallthrough logic below attaches command_uuid.
+        // execution === "server" OR unknown — fall through to /turn.
       }
 
-      // Normal message flow. Slash commands that fell through the client
-      // registry reach the backend — mint a uuid so the lifecycle listener
-      // can update the bubble as started/completed.
+      // Mint a command_uuid for slash commands that hit /turn so the
+      // backend's lifecycle events can update the bubble's state.
       const commandUuid = isSlash && typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : null;
 
-      setMessages((prev) => [
-        ...prev,
-        commandUuid
-          ? { role: "user", content: text, commandUuid, commandState: "pending" }
-          : { role: "user", content: text },
-      ]);
-      const myStreamId = ++activeStreamRef.current;
-      setBusy(true);
-      setError(null);
-      setStream(INITIAL_STREAM);
+      // Optimistic user-message bubble.
+      dispatch({
+        type: A.USER_MESSAGE_APPEND,
+        payload: {
+          message: commandUuid
+            ? { role: "user", content: text, commandUuid, commandState: "pending" }
+            : { role: "user", content: text },
+        },
+      });
 
-      const ctx = { thinking, webSearch };
-      turnContextRef.current = ctx;
+      // Run the turn — the loop handles every leg (initial POST + any
+      // continuation after an interactive tool_request).
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-      // try/finally so a thrown ``processStream`` (network blip, server
-      // 5xx, aborted controller) can't leave ``busy`` stuck true and
-      // freeze the input. Same pattern as ``advanceBatch``.
       try {
-        const result = await processStream({
-          userInput: text,
-          toolResults: [],
-          ctx,
-          commandUuid,
-          conversationIdOverride: activeConvId,
+        await runTurn({
+          dispatch,
+          conversationId: activeConvId,
+          projectId,
+          initialInput: {
+            userInput: text,
+            toolResults: [],
+            commandUuid,
+          },
+          getAgentState: () => stateRef.current.clientState,
+          awaitInteractive,
+          getToken,
+          signal: controller.signal,
+          thinking,
+          webSearch,
+          onSlideEvent,
+          onDeckExportReady: handleDeckExportReady,
+          onDeckExportDomReady: handleDeckExportDomReady,
         });
-
-        appendAssistantToUi(result);
-
-        // /clear is a backend command that truncates the conversation's
-        // messages + Redis cache and resets its token counters. Refetch
-        // the canonical list so local state matches the (now cleared)
-        // server state — the optimistic /clear bubble + the stdout SSE
-        // bubble are replaced by their persisted DB rows.
-        if (cmdName === "clear") {
-          await refetchMessages();
-        }
+      } catch {
+        // runTurn already dispatched TURN_ERROR; nothing else to do.
       } finally {
-        // Only clear ``busy`` if no newer turn started after us. The
-        // prior-turn SSE stream can keep iterating well past its useful
-        // payload while the backend persists post-tool_request rows;
-        // when it finally closes here, a newer turn (e.g. plan-approval)
-        // may already be in flight and have already flipped busy=true.
-        if (activeStreamRef.current === myStreamId) {
-          setBusy(false);
+        if (abortRef.current === controller) {
+          abortRef.current = null;
         }
+      }
+
+      // /clear truncates BE state; refetch the canonical list so local
+      // state matches.
+      if (cmdName === "clear") {
+        await refetchMessages();
       }
     },
     [
-      conversationId, messages, clientState.model, totalUsage,
-      dispatch, clear, processStream, appendAssistantToUi, getToken,
-      refetchMessages,
+      conversationId, projectId, awaitInteractive, getToken,
       onCreateConversation, onSetActiveConversation, onSetConversationTitle,
+      onSlideEvent, runClientSlashCommand, refetchMessages,
     ],
   );
 
-  // ── Batch finalization ─────────────────────────────────────────────
-  // Called by submitToolAnswer/submitPlanAnswer after each call's result
-  // is captured. If more calls remain in the batch, show the next modal;
-  // otherwise submit the full tool_results list to /turn in one round-trip.
-  const advanceBatch = useCallback(
-    async (callResult, { modeChange } = {}) => {
-      const batch = toolBatchRef.current;
-      if (!batch) return;
-      batch.collected.push(callResult);
-      if (modeChange) batch.modeChange = modeChange;
+  // ── Public API: interactive tool answer handlers ───────────────────
+  //
+  // These resolve the promise that ``awaitInteractive`` is parked on,
+  // unblocking the loop so it can POST the continuation /turn.
 
-      if (batch.queue.length > 0) {
-        const [next, ...rest] = batch.queue;
-        batch.queue = rest;
-        setPendingToolRequest(next);
-        return;
-      }
-
-      const ctx = turnContextRef.current;
-      if (!ctx) return;
-
-      // priorResults are tool_results from non-interactive tools that
-      // ran server-side BEFORE the interactive handoff. The backend
-      // already persisted them as a user row that turn — re-submitting
-      // here just inserts a duplicate tool_result row in the
-      // conversation history, polluting the prefix the next model call
-      // sees. Send only the newly collected interactive answers.
-      const toolResults = batch.collected;
-
-      let agentStateOverride;
-      if (batch.modeChange === "default") {
-        agentStateOverride = { ...clientState, permission_mode: "default" };
-        setClientState(agentStateOverride);
-        setTodos([]);
-      }
-
-      // Order matters: flip ``busy`` ON first so the UI shows the
-      // streaming/stop affordances even before the first SSE event
-      // lands. ``setPendingToolRequest(null)`` last so the plan card
-      // unmounts only after the busy/stream slots are already wired
-      // up — otherwise there's a single render where neither the
-      // plan UI nor the streaming indicator is visible.
-      const myStreamId = ++activeStreamRef.current;
-      setBusy(true);
-      setError(null);
-      setStream(INITIAL_STREAM);
-      toolBatchRef.current = null;
-      setPendingToolRequest(null);
-
-      // try/finally guarantees ``busy`` flips back to false even if
-      // ``processStream`` (or the SSE stream) throws — without this a
-      // server crash mid-stream could leave the input locked on the
-      // stop button forever.
-      try {
-        const result = await processStream({
-          userInput: null,
-          toolResults,
-          ctx,
-          agentStateOverride,
-        });
-        appendAssistantToUi(result);
-      } finally {
-        // See the matching guard in ``send`` — only clear busy if we're
-        // still the active turn. The prior turn that handed off the
-        // ExitPlanMode tool_request is typically still draining its SSE
-        // stream while the backend persists; when it eventually closes,
-        // its ``finally`` would wipe our busy=true here without this
-        // check.
-        if (activeStreamRef.current === myStreamId) {
-          setBusy(false);
-        }
-      }
-    },
-    [clientState, processStream, appendAssistantToUi],
-  );
-
-  // ── Public API: answer an AskUserQuestion call ─────────────────────
   const submitToolAnswer = useCallback(
-    async (answers, annotations) => {
-      const req = pendingToolRequest;
-      if (!req) return;
+    (answers, annotations) => {
+      const req = stateRef.current.pendingToolRequest;
+      if (!req || !pendingResolveRef.current) return;
 
       const lines = [];
       for (const [q, a] of Object.entries(answers)) {
@@ -976,87 +448,132 @@ export function useChat(
         if (ann?.notes) lines.push(`  User notes: ${ann.notes}`);
       }
 
-      await advanceBatch({
-        call_id: req.tool_use_id,
-        name: req.tool_name,
-        output: lines.join("\n"),
-        success: true,
+      pendingResolveRef.current({
+        result: {
+          call_id: req.tool_use_id,
+          name: req.tool_name,
+          output: lines.join("\n"),
+          success: true,
+        },
+        modeChange: null,
       });
     },
-    [pendingToolRequest, advanceBatch],
+    [],
   );
 
-  // ── Public API: approve/reject an ExitPlanMode plan ────────────────
   const submitPlanAnswer = useCallback(
-    async (approved, rejectionReason) => {
-      const req = pendingToolRequest;
-      if (!req || req.tool_name !== "ExitPlanMode") return;
+    (approved, rejectionReason) => {
+      const req = stateRef.current.pendingToolRequest;
+      if (!req || req.tool_name !== "ExitPlanMode" || !pendingResolveRef.current) {
+        return;
+      }
 
       const output = approved
         ? "User approved your plan. Permission mode is now default — you can call slide-write tools. Execute the plan now: call CreateSlide exactly ONCE per slide listed in your plan markdown, in the order the plan describes. Your TodoWrite items mirror the same slides and are tracking-only — do NOT iterate them as a separate set of work."
         : `User rejected your plan: ${rejectionReason || "no reason given"}. Stay in plan mode and revise.`;
 
-      await advanceBatch(
-        {
+      pendingResolveRef.current({
+        result: {
           call_id: req.tool_use_id,
           name: req.tool_name,
           output,
           success: true,
         },
-        { modeChange: approved ? "default" : undefined },
-      );
+        modeChange: approved ? "default" : null,
+      });
     },
-    [pendingToolRequest, advanceBatch],
+    [],
   );
 
   // ── Pagination: load older messages ────────────────────────────────
   const loadOlder = useCallback(async () => {
     if (!conversationId) return 0;
-    // Find the smallest sequence we have. We stored `raw`/meta but not seq,
-    // so keep a parallel oldest tracker via server round-trip.
     try {
       const token = getToken ? await getToken() : null;
-      // Use the oldest currently-loaded message's sequence. Since rowToUi
-      // dropped it, we re-query by asking the server for messages before the
-      // smallest we don't have — approximated by current messages length.
       const rows = await api.getMessages(token, conversationId, {
-        beforeSequence: messages.length,  // works when no gaps; good enough for v1
+        beforeSequence: stateRef.current.messages.length,
         limit: 50,
       });
       if (!rows.length) return 0;
       const ui = rows.map(rowToUiMessage).filter(Boolean);
-      setMessages((prev) => [...ui, ...prev]);
+      dispatch({ type: A.MESSAGES_PREPEND, payload: { messages: ui } });
       return rows.length;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load older messages");
+      dispatch({
+        type: A.ERROR_SET,
+        payload: {
+          message: e instanceof Error ? e.message : "Failed to load older messages",
+        },
+      });
       return 0;
     }
-  }, [conversationId, getToken, messages.length]);
+  }, [conversationId, getToken]);
+
+  // ── Deck-export SSE handlers ───────────────────────────────────────
+  //
+  // The agent's ExportDeck / ExportDeckDom tools push a synthetic SSE
+  // event once they've assembled the spec; we build and download the
+  // .pptx in the browser here. Same async/error-surface pattern as
+  // the original useChat.
+
+  const handleDeckExportReady = useCallback((data) => {
+    (async () => {
+      try {
+        await buildAndDownloadPptx(data?.deck);
+      } catch (e) {
+        dispatch({
+          type: A.ERROR_SET,
+          payload: {
+            message: e instanceof Error
+              ? `Failed to build .pptx: ${e.message}`
+              : "Failed to build .pptx",
+          },
+        });
+      }
+    })();
+  }, []);
+
+  const handleDeckExportDomReady = useCallback((data) => {
+    (async () => {
+      try {
+        await buildAndDownloadDomPptx({
+          slides: data?.slides || [],
+          filename: data?.filename || "presentation-dom.pptx",
+        });
+      } catch (e) {
+        dispatch({
+          type: A.ERROR_SET,
+          payload: {
+            message: e instanceof Error
+              ? `Failed to build DOM .pptx: ${e.message}`
+              : "Failed to build DOM .pptx",
+          },
+        });
+      }
+    })();
+  }, []);
+
+  // ── Public API surface ─────────────────────────────────────────────
 
   return {
-    messages,
-    busy,
-    stream,
-    error,
-    totalUsage,
-    pendingToolRequest,
+    messages: state.messages,
+    busy: state.busy,
+    stream: state.stream,
+    error: state.error,
+    totalUsage: state.totalUsage,
+    pendingToolRequest: state.pendingToolRequest,
     conversationId,
-    loadingHistory,
+    loadingHistory: state.loadingHistory,
+    todos: state.todos,
+    agentState: state.clientState,
+    compactWarning: state.compactWarning,
+    compactWarningVisible: selectCompactWarningVisible(state),
+    dismissCompactWarning,
     send,
     stop,
     clear,
     submitToolAnswer,
     submitPlanAnswer,
     loadOlder,
-    todos,
-    agentState: clientState,
-    // Phase 3.6 — compaction surface.
-    // ``compactWarning`` is the raw WarningState (or null);
-    // ``compactWarningVisible`` is the should-show predicate after
-    // dismissal logic; ``dismissCompactWarning`` records the dismissal
-    // and re-arms on next threshold cross.
-    compactWarning,
-    compactWarningVisible,
-    dismissCompactWarning,
   };
 }
