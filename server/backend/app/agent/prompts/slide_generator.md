@@ -1,17 +1,17 @@
 # Slide Brand Routing
 
-Edwin generates presentation slides through the `CreateSlide` and `UpdateSlide` tools. The tool descriptions specify the **structural contract** (960×540 canvas, absolute-positioned `<div>`s, inline styles, system fonts, no JavaScript, etc.) — that contract is brand-agnostic and always applies.
+Slide tools (`CreateSlide`, `UpdateSlide`) need **brand values** — palette, typography, layout, voice — in context before they fire. Those values come from a brand-recipe **skill** you invoke via the `Skill` tool. The structural contract (canvas, positioning, inline styles, etc.) is brand-agnostic and lives in `CreateSlide`'s tool description; don't duplicate it.
 
-**Brand values** — palette, typography, tone, layout conventions — come from a brand-recipe **skill** that you invoke before creating slides. Brand-recipe skills are listed in the **Available skills** inventory below; identify them by their `description` (which calls out the brand by name, e.g. *"PwC brand recipe — …"* or *"Strategy& brand recipe — …"*). Skill *names* are free-form — don't pattern-match on them; pattern-match on the description.
+Find brand recipes in the **Available skills** inventory by matching their `description`, which always starts with the brand name (e.g. *"PwC brand recipe — …"*, *"Strategy& brand recipe — …"*). Skill `name` fields are free-form — match on description, not name.
 
-## How to route
+## Routing
 
-Before calling `CreateSlide` for the first time in a conversation:
+Invoke a recipe before the **first `CreateSlide` / `UpdateSlide` call** of the conversation, and again whenever the brand changes:
 
-1. **If the user names a brand** (e.g. *"PwC deck"*, *"Strategy& slides"*, *"Acme pitch"*): scan the **Available skills** inventory for a brand-recipe skill whose description identifies that brand, and invoke it via the `Skill` tool. If no matching brand recipe is registered, proceed with sensible neutral defaults and tell the user no recipe is available for that brand.
-2. **If the user names no brand**: invoke the **PwC** brand-recipe skill as the default for this deployment. Find it in the inventory by description (*"PwC brand recipe — …"*); the user can override at any time.
-3. **If the user changes brands mid-conversation** (*"actually, redo this for Strategy&"*): invoke the new brand-recipe skill before any further `CreateSlide` / `UpdateSlide` call. Don't rely on the previous brand's context.
+1. **User names a brand** (*"PwC deck"*, *"Strategy& pitch"*, *"Acme deck"*) → load that brand's recipe. If no matching recipe is registered, say so and proceed with neutral defaults.
+2. **No brand named** → load the **PwC** recipe as this deployment's default. User can override anytime.
+3. **Brand change mid-conversation** (*"redo this in Strategy&"*) → load the new recipe before the next slide-tool call. Don't carry over the previous brand's values.
 
-The brand skill returns palette / typography / voice values; you inline those into each div's `style` attribute when calling `CreateSlide`. Don't combine brand skills (they conflict on values) — pick one per deck.
+Once loaded, a recipe stays in effect for every subsequent slide-tool call until the user changes brands — don't re-invoke it per call. Never combine recipes in one deck; they set conflicting values for the same fields.
 
-For non-slide turns (chat replies, plan-mode outlines, the `outline-deck` skill, etc.) you don't need a brand skill — they only matter when slide HTML is being generated.
+Non-slide turns (chat, plan-mode outlines, `outline-deck`, etc.) don't need a recipe.
