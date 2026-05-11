@@ -1,23 +1,25 @@
-import { ChevronRight, Home, LogOut, User } from "lucide-react";
+import { ChevronRight, Home, LogOut, User, BookOpen } from "lucide-react";
 import { useAuth } from "frontend-comps";
 import ExportDeckButton from "../deck/ExportDeckButton";
 import ExportDeckDomButton from "../deck/ExportDeckDomButton";
 
 /**
- * Top header. Two clusters:
- *   Left  — brand + breadcrumb (project name when inside a project).
- *   Right — exports (project only), About-me memory drawer trigger,
- *           user identity, sign-out.
+ * Top header.
  *
- * Phase 3.5: slide / chat panel toggles moved INTO the panels
- * themselves (close button on each), with a re-open peek-tab on the
- * edge when hidden. Keeps the header focused on identity/cross-cutting
- * actions instead of layout chrome.
+ *   Left  — brand
+ *           breadcrumb: project name + "Project memory" link (when in
+ *           a project; the link goes to the project's memory page).
+ *   Right — exports (project only), "Your memory" link (always
+ *           available), user identity, sign-out.
+ *
+ * Slide / chat panel toggles live inside the panels themselves, not
+ * here (Phase 3.5).
  */
 export default function Header({
   activeProjectName,
   onBackToProjects,
   onOpenUserMemory,
+  onOpenProjectMemory,
 }) {
   const { user, signOut } = useAuth();
   const userName = user?.name ?? user?.username ?? "";
@@ -48,6 +50,16 @@ export default function Header({
             <Home size={11} className="text-gray-400 group-hover:text-brand transition-colors" />
             <span className="truncate max-w-[220px]">{activeProjectName}</span>
           </button>
+          {onOpenProjectMemory && (
+            <button
+              onClick={onOpenProjectMemory}
+              title="Project memory — what I remember about this deck"
+              className="ml-1 inline-flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium text-gray-500 hover:bg-brand-dim hover:text-brand transition-colors cursor-pointer"
+            >
+              <BookOpen size={11} />
+              <span>Project memory</span>
+            </button>
+          )}
         </>
       )}
 
@@ -63,12 +75,12 @@ export default function Header({
         {onOpenUserMemory && (
           <button
             onClick={onOpenUserMemory}
-            title="About you — what I remember across every conversation"
+            title="Your memory — what I remember about you across every conversation"
             className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium
                        text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors cursor-pointer"
           >
             <User size={14} />
-            <span className="hidden sm:inline">About me</span>
+            <span className="hidden sm:inline">Your memory</span>
           </button>
         )}
 

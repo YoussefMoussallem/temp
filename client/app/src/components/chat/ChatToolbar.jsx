@@ -1,4 +1,4 @@
-import { Brain, Globe, ClipboardList, Folder, PanelRightClose } from "lucide-react";
+import { Brain, Globe, ClipboardList, PanelRightClose } from "lucide-react";
 import ConversationMenu from "./ConversationMenu";
 
 export default function ChatToolbar({
@@ -15,7 +15,6 @@ export default function ChatToolbar({
   onSelectConversation,
   onCreateConversation,
   onDeleteConversation,
-  onOpenProjectMemory,
   onClose,
 }) {
   return (
@@ -58,17 +57,6 @@ export default function ChatToolbar({
         label="Search"
         title="Search"
       />
-
-      {onOpenProjectMemory && (
-        <button
-          onClick={onOpenProjectMemory}
-          title="About this project — what I remember for this deck"
-          className="shrink-0 h-7 px-2 rounded-md flex items-center gap-1.5 text-[11px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all duration-150 cursor-pointer"
-        >
-          <Folder size={13} />
-          <span className="hidden xl:inline">Project</span>
-        </button>
-      )}
 
       {onClose && (
         <button

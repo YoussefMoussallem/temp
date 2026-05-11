@@ -50,6 +50,7 @@ export default function ChatPage({
         activeProjectName={activeProject?.name}
         onBackToProjects={onBackToProjects}
         onOpenUserMemory={onOpenUserMemory}
+        onOpenProjectMemory={onOpenProjectMemory}
       />
 
       {deck.forbidden && (
@@ -103,7 +104,6 @@ export default function ChatPage({
                 onDeleteConversation={handleDeleteConversation}
                 readOnly={isViewer}
                 onClose={toggleChat}
-                onOpenProjectMemory={onOpenProjectMemory}
               />
             </div>
           </>

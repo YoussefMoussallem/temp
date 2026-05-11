@@ -12,7 +12,7 @@ import { useConversations } from "./hooks/useConversations";
 import { primeRegistry } from "./commands/index.js";
 import { setAuthInvalidator } from "./auth/invalidation.js";
 import ErrorBanner from "./components/common/ErrorBanner";
-import MemoryDrawer from "./components/memory/MemoryDrawer";
+import MemoryPage from "./screens/MemoryPage";
 
 const LS_ACTIVE_PROJECT = "edwin.active_project_id";
 const LS_ACTIVE_CONV = "edwin.active_conversation_id";
@@ -63,15 +63,15 @@ export default function App() {
 
   const [chatOpen, toggleChat] = useToggle(true);
   const [slidesOpen, toggleSlides] = useToggle(true);
-  // Single state holds which memory drawer (if any) is open. "user"
-  // shows the user-scope drawer (header-launched, always available);
-  // "project" shows the project-scope drawer (launched from inside
-  // the chat panel, only available in a project). Phase 3.5 split
-  // these into two surfaces because users were conflating them.
-  const [memoryDrawerScope, setMemoryDrawerScope] = useState(null);
-  const openUserMemory = () => setMemoryDrawerScope("user");
-  const openProjectMemory = () => setMemoryDrawerScope("project");
-  const closeMemory = () => setMemoryDrawerScope(null);
+  // Whether the user is currently viewing a memory page (full-screen
+  // surface that replaces ProjectsPage / ChatPage while open). null
+  // means we render the normal project flow. Pages instead of a
+  // drawer per user feedback — gives memory its own surface so users
+  // don't conflate it with the chat workspace.
+  const [memoryView, setMemoryView] = useState(null); // "user" | "project" | null
+  const openUserMemory = () => setMemoryView("user");
+  const openProjectMemory = () => setMemoryView("project");
+  const closeMemory = () => setMemoryView(null);
 
   // Fetch the backend command registry once on boot. Populates the typeahead
   // with server-only commands (theme, export, mcp, …) that the frontend
@@ -107,6 +107,40 @@ export default function App() {
     }
   }, [conversations.loading, conversations.conversations, activeConversationId]);
 
+  // Memory pages — own full-screen surfaces. Routed in front of the
+  // normal project flow when memoryView is set. User scope is always
+  // reachable; project scope requires an active project.
+  if (memoryView === "user") {
+    return (
+      <>
+        <ErrorBanner />
+        <MemoryPage
+          scope="user"
+          scopeId={currentUserOid}
+          onBack={closeMemory}
+          getToken={getToken}
+          onOpenUserMemory={openUserMemory}
+        />
+      </>
+    );
+  }
+  if (memoryView === "project" && activeProjectId) {
+    const activeProjectForMem = projects.projects.find((p) => p.id === activeProjectId);
+    return (
+      <>
+        <ErrorBanner />
+        <MemoryPage
+          scope="project"
+          scopeId={activeProjectId}
+          projectName={activeProjectForMem?.name ?? null}
+          onBack={closeMemory}
+          getToken={getToken}
+          onOpenUserMemory={openUserMemory}
+        />
+      </>
+    );
+  }
+
   if (!activeProjectId) {
     return (
       <>
@@ -117,13 +151,6 @@ export default function App() {
           onOpenUserMemory={openUserMemory}
           getToken={getToken}
           currentUserOid={currentUserOid}
-        />
-        <MemoryDrawer
-          open={memoryDrawerScope === "user"}
-          onClose={closeMemory}
-          getToken={getToken}
-          scope="user"
-          scopeId={currentUserOid}
         />
       </>
     );
@@ -157,21 +184,6 @@ export default function App() {
           toggleSlides={toggleSlides}
           onOpenUserMemory={openUserMemory}
           onOpenProjectMemory={openProjectMemory}
-        />
-        <MemoryDrawer
-          open={memoryDrawerScope === "user"}
-          onClose={closeMemory}
-          getToken={getToken}
-          scope="user"
-          scopeId={currentUserOid}
-        />
-        <MemoryDrawer
-          open={memoryDrawerScope === "project"}
-          onClose={closeMemory}
-          getToken={getToken}
-          scope="project"
-          scopeId={activeProjectId}
-          projectName={activeProject?.name ?? null}
         />
       </ChatProvider>
     </DeckProvider>

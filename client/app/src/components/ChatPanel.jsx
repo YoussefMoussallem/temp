@@ -22,7 +22,6 @@ export default function ChatPanel({
   onDeleteConversation,
   readOnly = false,
   onClose,
-  onOpenProjectMemory,
 }) {
   const handleCompactNow = () => {
     if (chat.busy || readOnly || !chat.conversationId) return;
@@ -66,7 +65,6 @@ export default function ChatPanel({
         onSelectConversation={onSelectConversation}
         onCreateConversation={onCreateConversation}
         onDeleteConversation={onDeleteConversation}
-        onOpenProjectMemory={onOpenProjectMemory}
         onClose={onClose}
       />
 
