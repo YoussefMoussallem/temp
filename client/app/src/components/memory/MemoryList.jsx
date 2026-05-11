@@ -1,63 +1,64 @@
 import { useState } from "react";
-import { Plus, BookText } from "lucide-react";
-import MemoryItem from "./MemoryItem";
-import MemoryEditor from "./MemoryEditor";
+import { Plus, BookText, Folder, User } from "lucide-react";
+import MemoryCard from "./MemoryCard";
+import MemoryComposer from "./MemoryComposer";
 import Skeleton from "../common/Skeleton";
 
 /**
- * One scope's memory tab body — list of entries + "New" affordance +
- * inline editor for create/edit.
+ * One scope's memory body — list of friendly cards + AI composer.
  *
- * Disabled state (``disabledReason`` non-null) is for the project tab
- * when no project is active — the tab is reachable but unusable.
+ * "Create" goes through ``onCreateFromText`` (LLM structures the input
+ * invisibly). "Edit" on a card uses ``onUpsert`` directly (no AI —
+ * the inline edit is for fine-tuning what the AI already produced).
+ *
+ * ``disabledReason`` is for the project-scope case when no project is
+ * active. Lets the surface still be discoverable while explaining why
+ * it can't be used right now.
  */
 export default function MemoryList({
   scope,
   memories,
   loading,
   error,
+  onCreateFromText,
   onUpsert,
   onDelete,
   disabledReason = null,
 }) {
-  // editorState: { mode: "new" | "edit", memory?: existingMemory } | null
-  const [editorState, setEditorState] = useState(null);
+  const [composing, setComposing] = useState(false);
 
   if (disabledReason) {
     return (
       <EmptyState
-        icon={BookText}
+        icon={Folder}
         title="Project memory unavailable"
         message={disabledReason}
       />
     );
   }
 
-  const handleSave = async (payload) => {
-    await onUpsert(payload);
-    setEditorState(null);
+  const handleCreate = async (text) => {
+    await onCreateFromText(text);
+    setComposing(false);
   };
 
   return (
     <div className="flex flex-col gap-3">
-      {!editorState && (
+      {composing ? (
+        <MemoryComposer
+          scope={scope}
+          onCreate={handleCreate}
+          onCancel={() => setComposing(false)}
+        />
+      ) : (
         <button
           type="button"
-          onClick={() => setEditorState({ mode: "new" })}
+          onClick={() => setComposing(true)}
           className="self-start inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg border border-dashed border-gray-300 text-gray-600 hover:border-brand hover:text-brand transition-colors cursor-pointer"
         >
           <Plus size={12} />
-          New memory
+          Remember something
         </button>
-      )}
-
-      {editorState && (
-        <MemoryEditor
-          scope={scope}
-          existing={editorState.mode === "edit" ? editorState.memory : null}
-          onSave={handleSave}
-          onCancel={() => setEditorState(null)}
-        />
       )}
 
       {error && (
@@ -69,34 +70,32 @@ export default function MemoryList({
       {loading && memories.length === 0 && (
         <div className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+            <Skeleton key={i} className="h-14 w-full rounded-xl" />
           ))}
         </div>
       )}
 
-      {!loading && memories.length === 0 && !editorState && (
+      {!loading && memories.length === 0 && !composing && (
         <EmptyState
-          icon={BookText}
+          icon={scope === "user" ? User : BookText}
           title={
-            scope === "user"
-              ? "No user memories yet"
-              : "No project memories yet"
+            scope === "user" ? "Nothing remembered yet" : "No project notes yet"
           }
           message={
             scope === "user"
-              ? "Save preferences, role, or feedback patterns the agent should carry across every conversation."
-              : "Save audience, deadline, key message, stakeholders, or references specific to this project."
+              ? "I don't carry anything between conversations yet. Tell me a preference, your role, or how you like to work — I'll keep it across every deck you make."
+              : "Tell me about this deck and I'll keep it for next time we work on it: who the audience is, when it's due, the key takeaway, anything decided."
           }
         />
       )}
 
       {memories.length > 0 && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           {memories.map((m) => (
-            <MemoryItem
+            <MemoryCard
               key={m.slug}
               memory={m}
-              onEdit={(mem) => setEditorState({ mode: "edit", memory: mem })}
+              onUpsert={onUpsert}
               onDelete={onDelete}
             />
           ))}
@@ -113,7 +112,7 @@ function EmptyState({ icon: Icon, title, message }) {
         <Icon size={18} className="text-gray-400" />
       </div>
       <p className="text-[12px] font-semibold text-gray-700 mb-1">{title}</p>
-      <p className="text-[11px] text-gray-500 leading-relaxed max-w-[300px]">
+      <p className="text-[11px] text-gray-500 leading-relaxed max-w-[320px]">
         {message}
       </p>
     </div>

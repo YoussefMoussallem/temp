@@ -5,12 +5,8 @@ import ShareProjectDialog from "../components/common/ShareProjectDialog";
 
 export default function ProjectsPage({
   projects,
-  chatOpen,
-  onToggleChat,
-  slidesOpen,
-  onToggleSlides,
   onOpenProject,
-  onOpenMemory,
+  onOpenUserMemory,
   getToken,
   currentUserOid,
 }) {
@@ -18,13 +14,7 @@ export default function ProjectsPage({
 
   return (
     <div className="h-screen flex flex-col bg-[#f3f2f1]">
-      <Header
-        chatOpen={chatOpen}
-        onToggleChat={onToggleChat}
-        slidesOpen={slidesOpen}
-        onToggleSlides={onToggleSlides}
-        onOpenMemory={onOpenMemory}
-      />
+      <Header onOpenUserMemory={onOpenUserMemory} />
       <ProjectPicker
         projects={projects.projects}
         loading={projects.loading}

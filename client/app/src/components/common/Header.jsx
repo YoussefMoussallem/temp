@@ -1,21 +1,24 @@
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronRight, Home, LogOut, BookText } from "lucide-react";
+import { ChevronRight, Home, LogOut, User } from "lucide-react";
 import { useAuth } from "frontend-comps";
 import ExportDeckButton from "../deck/ExportDeckButton";
 import ExportDeckDomButton from "../deck/ExportDeckDomButton";
 
+/**
+ * Top header. Two clusters:
+ *   Left  — brand + breadcrumb (project name when inside a project).
+ *   Right — exports (project only), About-me memory drawer trigger,
+ *           user identity, sign-out.
+ *
+ * Phase 3.5: slide / chat panel toggles moved INTO the panels
+ * themselves (close button on each), with a re-open peek-tab on the
+ * edge when hidden. Keeps the header focused on identity/cross-cutting
+ * actions instead of layout chrome.
+ */
 export default function Header({
-  chatOpen,
-  onToggleChat,
-  slidesOpen,
-  onToggleSlides,
   activeProjectName,
   onBackToProjects,
-  onOpenMemory,
+  onOpenUserMemory,
 }) {
-  // ``signOut`` clears MSAL state. The auth-watchdog effect in App.jsx
-  // observes the resulting ``isAuthenticated`` flip and navigates to
-  // ``/login`` — we don't navigate from here, so all redirect logic
-  // lives in one place.
   const { user, signOut } = useAuth();
   const userName = user?.name ?? user?.username ?? "";
   return (
@@ -53,47 +56,24 @@ export default function Header({
           <>
             <ExportDeckButton />
             <ExportDeckDomButton />
-
-            <span className="w-px h-5 bg-gray-200 mx-1" aria-hidden />
-
-            <button
-              onClick={onToggleSlides}
-              title={slidesOpen ? "Hide slides" : "Show slides"}
-              className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium
-                         text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors cursor-pointer"
-            >
-              {slidesOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
-              <span className="hidden sm:inline">Slides</span>
-            </button>
-
-            <button
-              onClick={onToggleChat}
-              title={chatOpen ? "Hide chat" : "Show chat"}
-              className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium
-                         text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors cursor-pointer"
-            >
-              {chatOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
-              <span className="hidden sm:inline">Chat</span>
-            </button>
-
             <span className="w-px h-5 bg-gray-200 mx-1" aria-hidden />
           </>
         )}
 
-        {onOpenMemory && (
+        {onOpenUserMemory && (
           <button
-            onClick={onOpenMemory}
-            title="Memory — facts the agent carries between turns"
+            onClick={onOpenUserMemory}
+            title="About you — what I remember across every conversation"
             className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium
                        text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors cursor-pointer"
           >
-            <BookText size={14} />
-            <span className="hidden sm:inline">Memory</span>
+            <User size={14} />
+            <span className="hidden sm:inline">About me</span>
           </button>
         )}
 
         {userName && (
-          <span className="text-[11px] text-gray-400 hidden sm:block mr-1 ml-1">{userName}</span>
+          <span className="text-[11px] text-gray-400 hidden sm:block mx-1">{userName}</span>
         )}
         <button
           onClick={signOut}

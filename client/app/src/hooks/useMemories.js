@@ -74,6 +74,32 @@ export function useMemories(getToken, { scope, scopeId }) {
     [getToken, scope, scopeId],
   );
 
+  // AI-driven create / edit. Sends free-form text; the backend LLM
+  // structures it and upserts. Returns the saved row so the caller can
+  // immediately render it (no refetch needed).
+  const createFromText = useCallback(
+    async (text) => {
+      if (!scopeId) throw new Error("No scope id");
+      const token = getToken ? await getToken() : null;
+      const saved = await api.createMemoryFromText(token, {
+        scope,
+        text,
+        projectId: scope === "project" ? scopeId : null,
+      });
+      setMemories((prev) => {
+        const idx = prev.findIndex((m) => m.slug === saved.slug);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = saved;
+          return next;
+        }
+        return [saved, ...prev];
+      });
+      return saved;
+    },
+    [getToken, scope, scopeId],
+  );
+
   const remove = useCallback(
     async (slug) => {
       if (!scopeId) throw new Error("No scope id");
@@ -88,5 +114,5 @@ export function useMemories(getToken, { scope, scopeId }) {
     [getToken, scope, scopeId],
   );
 
-  return { memories, loading, error, refresh, upsert, remove };
+  return { memories, loading, error, refresh, upsert, createFromText, remove };
 }

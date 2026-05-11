@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Monitor, Presentation, X } from "lucide-react";
+import { Monitor, Presentation, X, PanelLeftClose } from "lucide-react";
 import SlideThumbnail from "./SlideThumbnail";
 import Skeleton from "../common/Skeleton";
 
@@ -29,6 +29,7 @@ export default function SlideFilmstrip({
   onDelete,
   isLoading = false,
   readOnly = false,
+  onClose,
 }) {
   const [dragIndex, setDragIndex] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
@@ -157,9 +158,19 @@ export default function SlideFilmstrip({
             Slides
           </span>
           {slides.length > 0 && (
-            <span className="ml-auto text-[10px] font-bold text-brand bg-brand-dim px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold text-brand bg-brand-dim px-1.5 py-0.5 rounded-full">
               {slides.length}
             </span>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              title="Hide slides"
+              className="ml-auto w-6 h-6 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+            >
+              <PanelLeftClose size={13} />
+            </button>
           )}
         </div>
       </div>

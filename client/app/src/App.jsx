@@ -63,12 +63,15 @@ export default function App() {
 
   const [chatOpen, toggleChat] = useToggle(true);
   const [slidesOpen, toggleSlides] = useToggle(true);
-  // Memory drawer is owned at the App level so both ProjectsPage and
-  // ChatPage can open it through their Header — the drawer renders
-  // once, outside both screen subtrees.
-  const [memoryOpen, setMemoryOpen] = useState(false);
-  const openMemory = () => setMemoryOpen(true);
-  const closeMemory = () => setMemoryOpen(false);
+  // Single state holds which memory drawer (if any) is open. "user"
+  // shows the user-scope drawer (header-launched, always available);
+  // "project" shows the project-scope drawer (launched from inside
+  // the chat panel, only available in a project). Phase 3.5 split
+  // these into two surfaces because users were conflating them.
+  const [memoryDrawerScope, setMemoryDrawerScope] = useState(null);
+  const openUserMemory = () => setMemoryDrawerScope("user");
+  const openProjectMemory = () => setMemoryDrawerScope("project");
+  const closeMemory = () => setMemoryDrawerScope(null);
 
   // Fetch the backend command registry once on boot. Populates the typeahead
   // with server-only commands (theme, export, mcp, …) that the frontend
@@ -110,22 +113,17 @@ export default function App() {
         <ErrorBanner />
         <ProjectsPage
           projects={projects}
-          chatOpen={chatOpen}
-          onToggleChat={toggleChat}
-          slidesOpen={slidesOpen}
-          onToggleSlides={toggleSlides}
           onOpenProject={setActiveProjectId}
-          onOpenMemory={openMemory}
+          onOpenUserMemory={openUserMemory}
           getToken={getToken}
           currentUserOid={currentUserOid}
         />
         <MemoryDrawer
-          open={memoryOpen}
+          open={memoryDrawerScope === "user"}
           onClose={closeMemory}
           getToken={getToken}
-          currentUserOid={currentUserOid}
-          activeProjectId={null}
-          activeProjectName={null}
+          scope="user"
+          scopeId={currentUserOid}
         />
       </>
     );
@@ -157,15 +155,23 @@ export default function App() {
           toggleChat={toggleChat}
           slidesOpen={slidesOpen}
           toggleSlides={toggleSlides}
-          onOpenMemory={openMemory}
+          onOpenUserMemory={openUserMemory}
+          onOpenProjectMemory={openProjectMemory}
         />
         <MemoryDrawer
-          open={memoryOpen}
+          open={memoryDrawerScope === "user"}
           onClose={closeMemory}
           getToken={getToken}
-          currentUserOid={currentUserOid}
-          activeProjectId={activeProjectId}
-          activeProjectName={activeProject?.name ?? null}
+          scope="user"
+          scopeId={currentUserOid}
+        />
+        <MemoryDrawer
+          open={memoryDrawerScope === "project"}
+          onClose={closeMemory}
+          getToken={getToken}
+          scope="project"
+          scopeId={activeProjectId}
+          projectName={activeProject?.name ?? null}
         />
       </ChatProvider>
     </DeckProvider>

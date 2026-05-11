@@ -1,4 +1,4 @@
-import { Lock } from "lucide-react";
+import { Lock, PanelLeftOpen, PanelRightOpen, Presentation, MessageSquare } from "lucide-react";
 import Header from "../components/common/Header";
 import SlideFilmstrip from "../components/deck/SlideFilmstrip";
 import DeckPreview from "../components/deck/DeckPreview";
@@ -19,7 +19,8 @@ export default function ChatPage({
   toggleChat,
   slidesOpen,
   toggleSlides,
-  onOpenMemory,
+  onOpenUserMemory,
+  onOpenProjectMemory,
 }) {
   const deck = useDeck();
   const chat = useChatContext();
@@ -46,13 +47,9 @@ export default function ChatPage({
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <Header
-        chatOpen={chatOpen}
-        onToggleChat={toggleChat}
-        slidesOpen={slidesOpen}
-        onToggleSlides={toggleSlides}
         activeProjectName={activeProject?.name}
         onBackToProjects={onBackToProjects}
-        onOpenMemory={onOpenMemory}
+        onOpenUserMemory={onOpenUserMemory}
       />
 
       {deck.forbidden && (
@@ -63,7 +60,7 @@ export default function ChatPage({
       )}
 
       <div className="flex-1 flex overflow-hidden">
-        {slidesOpen && (
+        {slidesOpen ? (
           <>
             <div style={{ width: slidePanel.width }} className="shrink-0">
               <SlideFilmstrip
@@ -74,15 +71,18 @@ export default function ChatPage({
                 onDelete={deck.deleteSlide}
                 isLoading={deck.isLoading}
                 readOnly={isViewer}
+                onClose={toggleSlides}
               />
             </div>
             <ResizeHandle onResize={slidePanel.onResize} />
           </>
+        ) : (
+          <PeekTab side="left" icon={Presentation} label="Slides" onClick={toggleSlides} />
         )}
 
         <DeckPreview slide={deck.selectedSlide} />
 
-        {chatOpen && (
+        {chatOpen ? (
           <>
             <ResizeHandle onResize={chatPanel.onResize} />
             <div style={{ width: chatPanel.width }} className="shrink-0">
@@ -102,12 +102,52 @@ export default function ChatPage({
                 onCreateConversation={handleCreateConversation}
                 onDeleteConversation={handleDeleteConversation}
                 readOnly={isViewer}
+                onClose={toggleChat}
+                onOpenProjectMemory={onOpenProjectMemory}
               />
             </div>
           </>
+        ) : (
+          <PeekTab side="right" icon={MessageSquare} label="Chat" onClick={toggleChat} />
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Slim vertical tab on the edge of the screen — replaces the old
+ * header toggle for showing a hidden panel. Slides peek on the left,
+ * chat peeks on the right, both with their own icon so the user knows
+ * what they're reopening.
+ */
+function PeekTab({ side, icon: Icon, label, onClick }) {
+  const isLeft = side === "left";
+  const ChevronIcon = isLeft ? PanelLeftOpen : PanelRightOpen;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`Show ${label.toLowerCase()}`}
+      className={`group h-full w-7 shrink-0 flex flex-col items-center justify-center gap-2 bg-white/60 hover:bg-white border-gray-200/60 transition-colors cursor-pointer ${
+        isLeft ? "border-r" : "border-l"
+      }`}
+    >
+      <ChevronIcon
+        size={14}
+        className="text-gray-400 group-hover:text-brand transition-colors"
+      />
+      <span
+        className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 group-hover:text-brand transition-colors"
+        style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+      >
+        {label}
+      </span>
+      <Icon
+        size={12}
+        className="text-gray-300 group-hover:text-brand transition-colors"
+      />
+    </button>
   );
 }
 

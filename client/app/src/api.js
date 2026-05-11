@@ -420,3 +420,28 @@ export async function deleteProjectMemory(token, projectId, slug) {
   }
 }
 
+/**
+ * AI-driven memory create/edit.
+ *
+ * User types natural-language input; backend calls an LLM to structure
+ * it into the slug / type / name / description / body schema, then
+ * upserts. Returns the saved memory in the same shape as the list
+ * endpoints so the caller can splice it into local state without a
+ * refetch.
+ *
+ * For scope=user, project_id is ignored (caller's own oid is used).
+ * For scope=project, project_id is required.
+ */
+export async function createMemoryFromText(token, { scope, text, projectId = null }) {
+  const res = await netFetch(`${AGENT}/memories/from-text`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      scope,
+      text,
+      project_id: scope === "project" ? projectId : null,
+    }),
+  });
+  return checked(res);
+}
+
