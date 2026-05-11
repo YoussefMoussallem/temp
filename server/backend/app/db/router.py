@@ -602,3 +602,74 @@ async def reorder_slide(
     if status >= 400:
         raise HTTPException(status_code=status, detail=str(body))
     return body
+
+
+# ── Memories — long-term agent memory (Phase 3 UI surface) ───────────────────
+# AuthZ enforced by db-service: user-scope endpoints require the caller's
+# own azure_oid; project-scope endpoints require_project_access.
+
+
+@router.get("/users/{azure_oid}/memories")
+async def list_user_memories(
+    azure_oid: str,
+    authorization: str | None = Header(default=None),
+):
+    return await _proxy_get(f"/api/users/{azure_oid}/memories", authorization)
+
+
+@router.post("/users/{azure_oid}/memories")
+async def upsert_user_memory(
+    azure_oid: str,
+    payload: dict = Body(...),
+    authorization: str | None = Header(default=None),
+):
+    status, body = await _proxy(
+        "POST", f"/api/users/{azure_oid}/memories", authorization,
+        json_body=payload,
+    )
+    if status >= 400:
+        raise HTTPException(status_code=status, detail=str(body))
+    return body
+
+
+@router.delete("/users/{azure_oid}/memories/{slug}", status_code=204)
+async def delete_user_memory(
+    azure_oid: str,
+    slug: str,
+    authorization: str | None = Header(default=None),
+):
+    await _proxy("DELETE", f"/api/users/{azure_oid}/memories/{slug}", authorization)
+    return Response(status_code=204)
+
+
+@router.get("/projects/{project_id}/memories")
+async def list_project_memories(
+    project_id: str,
+    authorization: str | None = Header(default=None),
+):
+    return await _proxy_get(f"/api/projects/{project_id}/memories", authorization)
+
+
+@router.post("/projects/{project_id}/memories")
+async def upsert_project_memory(
+    project_id: str,
+    payload: dict = Body(...),
+    authorization: str | None = Header(default=None),
+):
+    status, body = await _proxy(
+        "POST", f"/api/projects/{project_id}/memories", authorization,
+        json_body=payload,
+    )
+    if status >= 400:
+        raise HTTPException(status_code=status, detail=str(body))
+    return body
+
+
+@router.delete("/projects/{project_id}/memories/{slug}", status_code=204)
+async def delete_project_memory(
+    project_id: str,
+    slug: str,
+    authorization: str | None = Header(default=None),
+):
+    await _proxy("DELETE", f"/api/projects/{project_id}/memories/{slug}", authorization)
+    return Response(status_code=204)

@@ -359,3 +359,64 @@ export async function reorderSlide(token, slideId, { afterSlideId = null } = {})
   return body?.slides || [];
 }
 
+// ── Memories ───────────────────────────────────────────────────────────
+// Two scopes mirror the backend: user-scope memories follow the user
+// across all conversations; project-scope memories are tied to one
+// project and inherit its access model. The shape returned is the full
+// row including body — the FE drawer renders bodies inline, so unlike
+// the agent's tool-gated lazy-read pattern we just fetch them all.
+
+export async function listUserMemories(token, azureOid) {
+  const res = await netFetch(`${API}/users/${azureOid}/memories`, {
+    headers: authHeaders(token),
+  });
+  const body = await checked(res);
+  return body?.memories || [];
+}
+
+export async function upsertUserMemory(token, azureOid, payload) {
+  const res = await netFetch(`${API}/users/${azureOid}/memories`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  return checked(res);
+}
+
+export async function deleteUserMemory(token, azureOid, slug) {
+  const res = await netFetch(`${API}/users/${azureOid}/memories/${slug}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+}
+
+export async function listProjectMemories(token, projectId) {
+  const res = await netFetch(`${API}/projects/${projectId}/memories`, {
+    headers: authHeaders(token),
+  });
+  const body = await checked(res);
+  return body?.memories || [];
+}
+
+export async function upsertProjectMemory(token, projectId, payload) {
+  const res = await netFetch(`${API}/projects/${projectId}/memories`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  return checked(res);
+}
+
+export async function deleteProjectMemory(token, projectId, slug) {
+  const res = await netFetch(`${API}/projects/${projectId}/memories/${slug}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+}
+

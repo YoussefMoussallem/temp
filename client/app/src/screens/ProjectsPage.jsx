@@ -10,6 +10,7 @@ export default function ProjectsPage({
   slidesOpen,
   onToggleSlides,
   onOpenProject,
+  onOpenMemory,
   getToken,
   currentUserOid,
 }) {
@@ -22,6 +23,7 @@ export default function ProjectsPage({
         onToggleChat={onToggleChat}
         slidesOpen={slidesOpen}
         onToggleSlides={onToggleSlides}
+        onOpenMemory={onOpenMemory}
       />
       <ProjectPicker
         projects={projects.projects}

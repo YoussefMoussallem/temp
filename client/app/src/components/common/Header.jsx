@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronRight, Home, LogOut } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronRight, Home, LogOut, BookText } from "lucide-react";
 import { useAuth } from "frontend-comps";
 import ExportDeckButton from "../deck/ExportDeckButton";
 import ExportDeckDomButton from "../deck/ExportDeckDomButton";
@@ -10,6 +10,7 @@ export default function Header({
   onToggleSlides,
   activeProjectName,
   onBackToProjects,
+  onOpenMemory,
 }) {
   // ``signOut`` clears MSAL state. The auth-watchdog effect in App.jsx
   // observes the resulting ``isAuthenticated`` flip and navigates to
@@ -79,8 +80,20 @@ export default function Header({
           </>
         )}
 
+        {onOpenMemory && (
+          <button
+            onClick={onOpenMemory}
+            title="Memory — facts the agent carries between turns"
+            className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium
+                       text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors cursor-pointer"
+          >
+            <BookText size={14} />
+            <span className="hidden sm:inline">Memory</span>
+          </button>
+        )}
+
         {userName && (
-          <span className="text-[11px] text-gray-400 hidden sm:block mr-1">{userName}</span>
+          <span className="text-[11px] text-gray-400 hidden sm:block mr-1 ml-1">{userName}</span>
         )}
         <button
           onClick={signOut}

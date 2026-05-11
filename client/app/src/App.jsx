@@ -12,6 +12,7 @@ import { useConversations } from "./hooks/useConversations";
 import { primeRegistry } from "./commands/index.js";
 import { setAuthInvalidator } from "./auth/invalidation.js";
 import ErrorBanner from "./components/common/ErrorBanner";
+import MemoryDrawer from "./components/memory/MemoryDrawer";
 
 const LS_ACTIVE_PROJECT = "edwin.active_project_id";
 const LS_ACTIVE_CONV = "edwin.active_conversation_id";
@@ -62,6 +63,12 @@ export default function App() {
 
   const [chatOpen, toggleChat] = useToggle(true);
   const [slidesOpen, toggleSlides] = useToggle(true);
+  // Memory drawer is owned at the App level so both ProjectsPage and
+  // ChatPage can open it through their Header — the drawer renders
+  // once, outside both screen subtrees.
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const openMemory = () => setMemoryOpen(true);
+  const closeMemory = () => setMemoryOpen(false);
 
   // Fetch the backend command registry once on boot. Populates the typeahead
   // with server-only commands (theme, export, mcp, …) that the frontend
@@ -108,8 +115,17 @@ export default function App() {
           slidesOpen={slidesOpen}
           onToggleSlides={toggleSlides}
           onOpenProject={setActiveProjectId}
+          onOpenMemory={openMemory}
           getToken={getToken}
           currentUserOid={currentUserOid}
+        />
+        <MemoryDrawer
+          open={memoryOpen}
+          onClose={closeMemory}
+          getToken={getToken}
+          currentUserOid={currentUserOid}
+          activeProjectId={null}
+          activeProjectName={null}
         />
       </>
     );
@@ -141,6 +157,15 @@ export default function App() {
           toggleChat={toggleChat}
           slidesOpen={slidesOpen}
           toggleSlides={toggleSlides}
+          onOpenMemory={openMemory}
+        />
+        <MemoryDrawer
+          open={memoryOpen}
+          onClose={closeMemory}
+          getToken={getToken}
+          currentUserOid={currentUserOid}
+          activeProjectId={activeProjectId}
+          activeProjectName={activeProject?.name ?? null}
         />
       </ChatProvider>
     </DeckProvider>
