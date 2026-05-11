@@ -153,6 +153,16 @@ export default function SlideFilmstrip({
     <div className="w-full h-full bg-white/60 backdrop-blur-sm flex flex-col">
       <div className="px-4 py-3.5">
         <div className="flex items-center gap-2">
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              title="Hide slides"
+              className="w-6 h-6 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+            >
+              <PanelLeftClose size={13} />
+            </button>
+          )}
           <Presentation size={13} className="text-gray-400" />
           <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
             Slides
@@ -161,16 +171,6 @@ export default function SlideFilmstrip({
             <span className="text-[10px] font-bold text-brand bg-brand-dim px-1.5 py-0.5 rounded-full">
               {slides.length}
             </span>
-          )}
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              title="Hide slides"
-              className="ml-auto w-6 h-6 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
-            >
-              <PanelLeftClose size={13} />
-            </button>
           )}
         </div>
       </div>
