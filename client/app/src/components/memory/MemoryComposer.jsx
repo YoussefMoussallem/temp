@@ -58,9 +58,9 @@ export default function MemoryComposer({ scope, onCreate, onCancel }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={placeholder}
-        rows={5}
+        rows={8}
         autoFocus
-        className="text-[12px] border border-gray-200 rounded-lg px-3 py-2 resize-y min-h-[110px] focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand leading-relaxed"
+        className="text-[13px] border border-gray-200 rounded-lg px-3 py-3 resize-y min-h-[180px] focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand leading-relaxed"
       />
 
       <p className="text-[10px] text-gray-400 leading-relaxed">

@@ -59,12 +59,14 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
   // Drafts for inline edit mode.
   const [draftName, setDraftName] = useState(memory.name);
   const [draftDescription, setDraftDescription] = useState(memory.description);
+  const [draftBody, setDraftBody] = useState(memory.body);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const enterEdit = () => {
     setDraftName(memory.name);
     setDraftDescription(memory.description);
+    setDraftBody(memory.body);
     setError(null);
     setEditing(true);
     setExpanded(true);
@@ -78,6 +80,7 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
   const handleSave = async () => {
     const name = draftName.trim();
     const description = draftDescription.trim();
+    const body = draftBody.trim();
     if (!name) {
       setError("Title is required.");
       return;
@@ -90,17 +93,22 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
       setError("Summary must be ≤ 150 characters.");
       return;
     }
+    if (!body) {
+      setError("Body is required.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      // Direct upsert with the same slug/type/body — only name +
-      // description change in quick-edit mode.
+      // Direct upsert with the same slug + type — title / summary /
+      // body all editable. Slug stays the addressable handle so the
+      // entry doesn't fork.
       await onUpsert({
         slug: memory.slug,
         type: memory.type,
         name,
         description,
-        body: memory.body,
+        body,
       });
       setEditing(false);
     } catch (e) {
@@ -133,14 +141,19 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
           </div>
 
           {editing ? (
-            <input
-              type="text"
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              maxLength={120}
-              placeholder="Title"
-              className="text-[12px] font-semibold text-gray-800 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand"
-            />
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                Title
+              </label>
+              <input
+                type="text"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                maxLength={120}
+                placeholder="Short title — what is this memory about?"
+                className="text-[13px] font-semibold text-gray-800 border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand"
+              />
+            </div>
           ) : (
             <button
               type="button"
@@ -152,29 +165,49 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
           )}
 
           {editing ? (
-            <div className="flex flex-col gap-0.5">
-              <input
-                type="text"
+            <div className="flex flex-col gap-1 mt-1">
+              <div className="flex items-baseline justify-between">
+                <label className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                  Summary (the one-line I show in lists)
+                </label>
+                <span
+                  className={`text-[10px] ${
+                    draftDescription.length > 150
+                      ? "text-red-600"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {draftDescription.length}/150
+                </span>
+              </div>
+              <textarea
                 value={draftDescription}
                 onChange={(e) => setDraftDescription(e.target.value)}
                 maxLength={150}
-                placeholder="One-line summary"
-                className="text-[11px] text-gray-600 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand"
+                rows={2}
+                placeholder="A concrete one-liner so I know when this is relevant."
+                className="text-[12px] text-gray-700 border border-gray-200 rounded-md px-3 py-2 resize-y min-h-[48px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand"
               />
-              <span
-                className={`text-[10px] self-end ${
-                  draftDescription.length > 150
-                    ? "text-red-600"
-                    : "text-gray-400"
-                }`}
-              >
-                {draftDescription.length}/150
-              </span>
             </div>
           ) : (
             <p className="text-[11px] text-gray-500 leading-snug">
               {memory.description}
             </p>
+          )}
+
+          {editing && (
+            <div className="flex flex-col gap-1 mt-2">
+              <label className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                Full note (the detail behind this memory)
+              </label>
+              <textarea
+                value={draftBody}
+                onChange={(e) => setDraftBody(e.target.value)}
+                rows={8}
+                placeholder="The full content. Plain prose or markdown."
+                className="text-[12px] font-mono text-gray-700 border border-gray-200 rounded-md px-3 py-2 resize-y min-h-[180px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand"
+              />
+            </div>
           )}
         </div>
 
