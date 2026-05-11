@@ -25,7 +25,8 @@ from .tools.MCPTool import MCPTool
 from .tools.ReadMcpResourceTool import ReadMcpResourceTool
 from .tools.ReadMemoryTool import ReadMemoryTool
 from .tools.ReorderSlideTool import ReorderSlideTool
-from .tools.SaveMemoryTool import SaveMemoryTool
+from .tools.SaveProjectMemoryTool import SaveProjectMemoryTool
+from .tools.SaveUserMemoryTool import SaveUserMemoryTool
 from .tools.SkillTool import SkillTool
 from .tools.TodoWriteTool import TodoWriteTool
 from .tools.UpdateSlideTool import UpdateSlideTool
@@ -57,7 +58,8 @@ def get_all_base_tools() -> Tools:
         ListUserMemoriesTool,
         ReadMemoryTool,
         ReorderSlideTool,
-        SaveMemoryTool,
+        SaveProjectMemoryTool,
+        SaveUserMemoryTool,
         SkillTool,
         TodoWriteTool,
         UpdateSlideTool,

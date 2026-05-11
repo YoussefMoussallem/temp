@@ -93,7 +93,8 @@ EXIT_PLAN_MODE_TOOL_NAME = "ExitPlanMode"
 WEB_FETCH_TOOL_NAME = "WebFetch"
 WEB_SEARCH_TOOL_NAME = "WebSearch"
 SKILL_TOOL_NAME = "Skill"
-SAVE_MEMORY_TOOL_NAME = "SaveMemory"
+SAVE_USER_MEMORY_TOOL_NAME = "SaveUserMemory"
+SAVE_PROJECT_MEMORY_TOOL_NAME = "SaveProjectMemory"
 READ_MEMORY_TOOL_NAME = "ReadMemory"
 LIST_USER_MEMORIES_TOOL_NAME = "ListUserMemories"
 LIST_PROJECT_MEMORIES_TOOL_NAME = "ListProjectMemories"
@@ -372,7 +373,7 @@ def get_using_your_tools_section(enabled_tools: set[str]) -> str:
         f"`{LIST_USER_MEMORIES_TOOL_NAME}` — index of long-term facts "
         f"about THIS USER (preferences, role, default brand, feedback). "
         f"Index only; bodies via `{READ_MEMORY_TOOL_NAME}`. **ALWAYS "
-        f"call before `{SAVE_MEMORY_TOOL_NAME}` / "
+        f"call before `{SAVE_USER_MEMORY_TOOL_NAME}` / "
         f"`{DELETE_MEMORY_TOOL_NAME}` in user scope** so you reuse "
         f"existing slugs instead of creating siblings. Also call at the "
         f"start of stylistic or open-ended turns. Default to calling; "
@@ -384,8 +385,8 @@ def get_using_your_tools_section(enabled_tools: set[str]) -> str:
         f"about THIS PROJECT (audience, deadline, key message, "
         f"stakeholders, references). Index only; bodies via "
         f"`{READ_MEMORY_TOOL_NAME}`. **ALWAYS call before "
-        f"`{SAVE_MEMORY_TOOL_NAME}` / `{DELETE_MEMORY_TOOL_NAME}` in "
-        f"project scope.** Also call after a project switch, on the "
+        f"`{SAVE_PROJECT_MEMORY_TOOL_NAME}` / `{DELETE_MEMORY_TOOL_NAME}` "
+        f"in project scope.** Also call after a project switch, on the "
         f"first substantive turn in a project, or when the request "
         f"touches audience / scope / brand. Default to calling.",
     )
@@ -396,22 +397,35 @@ def get_using_your_tools_section(enabled_tools: set[str]) -> str:
         f"description matches what you need to act on.",
     )
     _bullet(
-        SAVE_MEMORY_TOOL_NAME,
-        f"`{SAVE_MEMORY_TOOL_NAME}` — save a long-term memory (user or "
-        f"project scope). **Workflow:** (1) call the matching List "
-        f"tool first to see existing slugs; (2) if an entry on the "
-        f"same topic exists, REUSE its slug — never create a sibling "
-        f"that contradicts it; (3) save. Use when the user asks to "
-        f"remember, corrects/confirms an approach, or shares a project-"
-        f"specific fact (audience, deadline, decision).",
+        SAVE_USER_MEMORY_TOOL_NAME,
+        f"`{SAVE_USER_MEMORY_TOOL_NAME}` — save a fact about THIS USER "
+        f"(role, preferences, feedback, defaults). Loads across every "
+        f"conversation, in every project. **Workflow:** (1) unless the "
+        f"user explicitly said this is a user-wide fact, call "
+        f"`{ASK_USER_QUESTION_TOOL_NAME}` first to confirm scope vs "
+        f"`{SAVE_PROJECT_MEMORY_TOOL_NAME}`; (2) call "
+        f"`{LIST_USER_MEMORIES_TOOL_NAME}` to find any existing slug "
+        f"on the topic; (3) if found, REUSE that slug; (4) save.",
+    )
+    _bullet(
+        SAVE_PROJECT_MEMORY_TOOL_NAME,
+        f"`{SAVE_PROJECT_MEMORY_TOOL_NAME}` — save a fact about THIS "
+        f"PROJECT (audience, deadline, decisions, stakeholders, "
+        f"references). Loads only in this project's conversations. "
+        f"**Workflow:** (1) unless the user explicitly tied the fact "
+        f"to this project, call `{ASK_USER_QUESTION_TOOL_NAME}` first "
+        f"to confirm scope vs `{SAVE_USER_MEMORY_TOOL_NAME}`; (2) call "
+        f"`{LIST_PROJECT_MEMORIES_TOOL_NAME}` to find any existing slug "
+        f"on the topic; (3) if found, REUSE that slug; (4) save.",
     )
     _bullet(
         DELETE_MEMORY_TOOL_NAME,
         f"`{DELETE_MEMORY_TOOL_NAME}` — remove a memory by scope + slug. "
         f"Use only for full retractions (\"forget that\") or genuinely "
         f"stale entries with nothing to replace them. For corrections "
-        f"or refinements, prefer `{SAVE_MEMORY_TOOL_NAME}` with the "
-        f"same slug — overwrite is cheaper than delete + create.",
+        f"or refinements, prefer `{SAVE_USER_MEMORY_TOOL_NAME}` / "
+        f"`{SAVE_PROJECT_MEMORY_TOOL_NAME}` with the same slug — "
+        f"overwrite is cheaper than delete + create.",
     )
 
     body_lines = [
