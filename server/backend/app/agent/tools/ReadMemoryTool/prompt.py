@@ -1,0 +1,22 @@
+READ_MEMORY_TOOL_NAME = "ReadMemory"
+
+DESCRIPTION = (
+    "Fetch the full body of one long-term memory by scope + slug. The "
+    "`List*Memories` tools return just the index (slug + description); "
+    "use this to read an entry whose description suggests it's relevant.\n\n"
+    "## When to call\n\n"
+    "  - After a List call surfaces a slug whose description matches the "
+    "current question.\n"
+    "  - When the user references a memory by name or by an effect they "
+    "previously asked for (\"like last time\", \"the audience we had\").\n"
+    "  - When another memory's body references this slug via "
+    "`[slug]` / `[user:slug]` / `[project:slug]` and you need the cross-"
+    "linked content.\n\n"
+    "## When not to call\n\n"
+    "  - For purely mechanical turns where memory bodies don't change "
+    "the answer (e.g. \"delete slide 3\").\n"
+    "  - Repeatedly within the same turn for the same slug — once you've "
+    "read a body, you have it.\n\n"
+    "Returns an error if the slug doesn't exist in the requested scope. "
+    "If you're not sure a slug exists, call the matching List tool first."
+)

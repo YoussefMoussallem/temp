@@ -129,9 +129,12 @@ class ToolUseContext:
     # (e.g. slide CRUD) use `project_id` to pick their target.
     # `conversation_id` is used by commands that mutate or read the active
     # conversation's message history (e.g. /clear, /context).
+    # `user_id` is the caller's azure_oid; user-scoped tools (e.g.
+    # SaveMemory / ListUserMemories) use it as the row-locking key.
     authorization: str | None = None
     project_id: str | None = None
     conversation_id: str | None = None
+    user_id: str | None = None
     # Deferred fields (Q6 multi-agent, Q9 hooks, plan mode, subagents):
     # agentId, agentType, queryTracking, contentReplacementState,
     # renderedSystemPrompt, requireCanUseTool, requestPrompt,

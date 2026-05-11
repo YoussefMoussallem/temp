@@ -572,6 +572,7 @@ async def _stream_turn(
                 can_use_tool=_allow_all,
                 authorization=authorization,
                 project_id=body.project_id,
+                user_id=user.user_id,
                 command_uuids=command_uuids_for_loop or None,
             ):
                 # Flush any command_lifecycle events accumulated since last yield.

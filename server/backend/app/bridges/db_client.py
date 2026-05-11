@@ -463,3 +463,148 @@ async def reorder_slide(
         )
         resp.raise_for_status()
         return resp.json().get("slides", [])
+
+
+# ============================================================================
+# Memories — long-term agent memory (Phase 1, tool-gated retrieval)
+# ============================================================================
+# Same critical-path error policy as slides: ``raise_for_status`` so the
+# agent loop surfaces failures. Phase 1 covers list / get / upsert / delete
+# for both scopes; no update endpoint distinct from upsert because the
+# common path is "save by slug, overwrite if exists."
+
+
+async def list_user_memories(authorization: str, user_oid: str) -> list[dict]:
+    """Return the index of a user's memories (slugs + descriptions + bodies).
+
+    Bodies are included by the underlying endpoint but the model-facing
+    tool projects to {slug, type, name, description} to keep the
+    streamed result small.
+    """
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{_get_base_url()}/api/users/{user_oid}/memories",
+            headers={"Authorization": authorization},
+        )
+        resp.raise_for_status()
+        return resp.json().get("memories", [])
+
+
+async def get_user_memory(
+    authorization: str, user_oid: str, slug: str,
+) -> dict | None:
+    """Fetch one user memory by slug. Returns None on 404."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{_get_base_url()}/api/users/{user_oid}/memories/{slug}",
+            headers={"Authorization": authorization},
+        )
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def upsert_user_memory(
+    authorization: str,
+    user_oid: str,
+    *,
+    slug: str,
+    type: str,
+    name: str,
+    description: str,
+    body: str,
+) -> dict:
+    """Insert or update a user memory by slug."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            f"{_get_base_url()}/api/users/{user_oid}/memories",
+            headers={"Authorization": authorization},
+            json={
+                "slug": slug,
+                "type": type,
+                "name": name,
+                "description": description,
+                "body": body,
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def delete_user_memory(
+    authorization: str, user_oid: str, slug: str,
+) -> None:
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.delete(
+            f"{_get_base_url()}/api/users/{user_oid}/memories/{slug}",
+            headers={"Authorization": authorization},
+        )
+        resp.raise_for_status()
+
+
+async def list_project_memories(
+    authorization: str, project_id: str,
+) -> list[dict]:
+    """Return the index of a project's memories."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{_get_base_url()}/api/projects/{project_id}/memories",
+            headers={"Authorization": authorization},
+        )
+        resp.raise_for_status()
+        return resp.json().get("memories", [])
+
+
+async def get_project_memory(
+    authorization: str, project_id: str, slug: str,
+) -> dict | None:
+    """Fetch one project memory by slug. Returns None on 404."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{_get_base_url()}/api/projects/{project_id}/memories/{slug}",
+            headers={"Authorization": authorization},
+        )
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def upsert_project_memory(
+    authorization: str,
+    project_id: str,
+    *,
+    slug: str,
+    type: str,
+    name: str,
+    description: str,
+    body: str,
+) -> dict:
+    """Insert or update a project memory by slug. The DB service records
+    ``created_by_user_id`` from the JWT — we don't pass it explicitly."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            f"{_get_base_url()}/api/projects/{project_id}/memories",
+            headers={"Authorization": authorization},
+            json={
+                "slug": slug,
+                "type": type,
+                "name": name,
+                "description": description,
+                "body": body,
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def delete_project_memory(
+    authorization: str, project_id: str, slug: str,
+) -> None:
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.delete(
+            f"{_get_base_url()}/api/projects/{project_id}/memories/{slug}",
+            headers={"Authorization": authorization},
+        )
+        resp.raise_for_status()

@@ -16,6 +16,7 @@ from app.routers.slides import router as slides_router
 from app.routers.projects import router as projects_router
 from app.routers.messages import router as messages_router
 from app.routers.conversations import router as conversations_router
+from app.routers.memories import router as memories_router
 
 
 @asynccontextmanager
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(conversations_router, prefix="/api")
     app.include_router(messages_router, prefix="/api")
     app.include_router(slides_router, prefix="/api")
+    app.include_router(memories_router, prefix="/api")
 
     @app.get("/health")
     async def health():

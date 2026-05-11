@@ -201,6 +201,7 @@ class QueryEngine:
         max_turns: int | None = None,
         authorization: str | None = None,
         project_id: str | None = None,
+        user_id: str | None = None,
         command_uuids: list[str] | None = None,
     ) -> AsyncGenerator[Any, None]:
         """
@@ -214,6 +215,7 @@ class QueryEngine:
             messages=messages,
             authorization=authorization,
             project_id=project_id,
+            user_id=user_id,
         )
         tool_use_context.options.permissionMode = self.client_state.permission_mode
 

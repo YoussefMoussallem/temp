@@ -93,6 +93,10 @@ EXIT_PLAN_MODE_TOOL_NAME = "ExitPlanMode"
 WEB_FETCH_TOOL_NAME = "WebFetch"
 WEB_SEARCH_TOOL_NAME = "WebSearch"
 SKILL_TOOL_NAME = "Skill"
+SAVE_MEMORY_TOOL_NAME = "SaveMemory"
+READ_MEMORY_TOOL_NAME = "ReadMemory"
+LIST_USER_MEMORIES_TOOL_NAME = "ListUserMemories"
+LIST_PROJECT_MEMORIES_TOOL_NAME = "ListProjectMemories"
 
 # ============================================================================
 # Helpers
@@ -361,6 +365,38 @@ def get_using_your_tools_section(enabled_tools: set[str]) -> str:
         f"`{SKILL_TOOL_NAME}` — invoke a packaged skill (e.g. "
         f"`outline-deck`, `pitch-rewrite`, `simplify`, `speaker-notes`). "
         f"Skills are pre-tuned prompts for common slide-app workflows.",
+    )
+    _bullet(
+        LIST_USER_MEMORIES_TOOL_NAME,
+        f"`{LIST_USER_MEMORIES_TOOL_NAME}` — list long-term facts saved "
+        f"about THIS USER (preferences, role, default brand, feedback "
+        f"patterns) across all conversations. Index only; bodies via "
+        f"`{READ_MEMORY_TOOL_NAME}`. Call at the start of open-ended or "
+        f"stylistic turns; skip for purely mechanical edits.",
+    )
+    _bullet(
+        LIST_PROJECT_MEMORIES_TOOL_NAME,
+        f"`{LIST_PROJECT_MEMORIES_TOOL_NAME}` — list long-term facts "
+        f"saved about THIS PROJECT (audience, deadline, key message, "
+        f"stakeholders, references). Index only; bodies via "
+        f"`{READ_MEMORY_TOOL_NAME}`. Call early in a project conversation, "
+        f"on requests touching audience/scope/brand, or after a project "
+        f"switch.",
+    )
+    _bullet(
+        READ_MEMORY_TOOL_NAME,
+        f"`{READ_MEMORY_TOOL_NAME}` — fetch the full body of one memory "
+        f"by `scope` (user/project) + `slug`. Use after a List call "
+        f"surfaces a slug whose description matches the current question.",
+    )
+    _bullet(
+        SAVE_MEMORY_TOOL_NAME,
+        f"`{SAVE_MEMORY_TOOL_NAME}` — save a long-term memory in either "
+        f"user or project scope. Use when the user asks to remember "
+        f"something, corrects your approach, confirms a non-obvious "
+        f"choice was right, or shares a fact specific to the project "
+        f"(audience, deadline, decision). Slug is the addressable "
+        f"handle — re-saving overwrites.",
     )
 
     body_lines = [

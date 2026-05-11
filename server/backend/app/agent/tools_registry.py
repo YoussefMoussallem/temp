@@ -17,10 +17,14 @@ from .tools.ExitPlanModeTool import ExitPlanModeTool
 from .tools.ExportDeckDomTool import ExportDeckDomTool
 from .tools.ExportDeckTool import ExportDeckTool
 from .tools.ListMcpResourcesTool import ListMcpResourcesTool
+from .tools.ListProjectMemoriesTool import ListProjectMemoriesTool
 from .tools.ListSlidesTool import ListSlidesTool
+from .tools.ListUserMemoriesTool import ListUserMemoriesTool
 from .tools.MCPTool import MCPTool
 from .tools.ReadMcpResourceTool import ReadMcpResourceTool
+from .tools.ReadMemoryTool import ReadMemoryTool
 from .tools.ReorderSlideTool import ReorderSlideTool
+from .tools.SaveMemoryTool import SaveMemoryTool
 from .tools.SkillTool import SkillTool
 from .tools.TodoWriteTool import TodoWriteTool
 from .tools.UpdateSlideTool import UpdateSlideTool
@@ -46,8 +50,12 @@ def get_all_base_tools() -> Tools:
         ExitPlanModeTool,
         ExportDeckTool,
         ExportDeckDomTool,
+        ListProjectMemoriesTool,
         ListSlidesTool,
+        ListUserMemoriesTool,
+        ReadMemoryTool,
         ReorderSlideTool,
+        SaveMemoryTool,
         SkillTool,
         TodoWriteTool,
         UpdateSlideTool,
