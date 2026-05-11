@@ -11,6 +11,7 @@ from .services.mcp.connection_manager import maybe_get_manager
 from .services.mcp.tool_bridge import build_tools as build_mcp_tools
 from .tools.AskUserQuestionTool import AskUserQuestionTool
 from .tools.CreateSlideTool import CreateSlideTool
+from .tools.DeleteMemoryTool import DeleteMemoryTool
 from .tools.DeleteSlideTool import DeleteSlideTool
 from .tools.EnterPlanModeTool import EnterPlanModeTool
 from .tools.ExitPlanModeTool import ExitPlanModeTool
@@ -45,6 +46,7 @@ def get_all_base_tools() -> Tools:
     native = [
         AskUserQuestionTool,
         CreateSlideTool,
+        DeleteMemoryTool,
         DeleteSlideTool,
         EnterPlanModeTool,
         ExitPlanModeTool,

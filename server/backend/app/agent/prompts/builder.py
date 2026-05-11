@@ -97,6 +97,7 @@ SAVE_MEMORY_TOOL_NAME = "SaveMemory"
 READ_MEMORY_TOOL_NAME = "ReadMemory"
 LIST_USER_MEMORIES_TOOL_NAME = "ListUserMemories"
 LIST_PROJECT_MEMORIES_TOOL_NAME = "ListProjectMemories"
+DELETE_MEMORY_TOOL_NAME = "DeleteMemory"
 
 # ============================================================================
 # Helpers
@@ -396,7 +397,18 @@ def get_using_your_tools_section(enabled_tools: set[str]) -> str:
         f"something, corrects your approach, confirms a non-obvious "
         f"choice was right, or shares a fact specific to the project "
         f"(audience, deadline, decision). Slug is the addressable "
-        f"handle — re-saving overwrites.",
+        f"handle — re-saving overwrites. If the new save would "
+        f"contradict an existing entry, reuse THAT entry's slug "
+        f"instead of creating a sibling.",
+    )
+    _bullet(
+        DELETE_MEMORY_TOOL_NAME,
+        f"`{DELETE_MEMORY_TOOL_NAME}` — remove a long-term memory by "
+        f"scope + slug. Use when the user asks you to forget something, "
+        f"or when an existing entry is wrong/stale and there's nothing "
+        f"useful to overwrite it with. Prefer `{SAVE_MEMORY_TOOL_NAME}` "
+        f"with the same slug when the user is correcting rather than "
+        f"retracting — overwrite is cheaper than delete + create.",
     )
 
     body_lines = [
