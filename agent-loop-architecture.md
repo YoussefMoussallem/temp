@@ -36,12 +36,12 @@ flowchart TB
     Ask --> Gate
     Decide --> Done --> ExtractMem --> User
 
-    subgraph Plumbing["Plumbing under the hood (enables the loop to run without rough edges)"]
+    subgraph Plumbing["Plumbing under the hood"]
       direction TB
-      P1["One continuous turn loop on the frontend<br/>(today: each user response triggers a separate round-trip)"]:::missing
-      P2["Frontend-only tools run in parallel mid-stream"]:::missing
-      P3["Race-free hand-off when the AI asks for input<br/>(today: brief window where state can drift)"]:::missing
-      P4["Progress saved live as the AI works<br/>(today: writes happen in batches at the end of each leg)"]:::missing
+      P1["One continuous turn loop on the frontend<br/>(shipped — agentLoop.js owns the whole turn through a single while loop;<br/>continuation POSTs happen inside the loop rather than via fresh user clicks)"]:::done
+      P3["Race-free hand-off when the AI asks for input<br/>(shipped — interactive tool answers resolve a promise the loop is awaiting,<br/>so no two streams can ever overlap and clobber state)"]:::done
+      P2["Frontend-only tools run in parallel mid-stream<br/>(deferred — Edwin has few FE-side tools today; coordinator pattern<br/>lands when subagent / forked-skill work needs it)"]:::missing
+      P4["Progress saved live as the AI works<br/>(deferred — backend still drains the to_persist list after the SSE<br/>loop ends; FE-side per-message persistence not ported)"]:::missing
     end
 
     classDef done fill:#d4edda,stroke:#155724,color:#000
@@ -61,4 +61,4 @@ flowchart TB
 | **Forked skills** | A skill can run in an isolated sandbox: its own memory, its own tool subset, its own abort signal. Useful for skills that change brand, language, or persona without polluting the parent conversation. |
 | **Sub-agent dispatch** | The AI can hand off a subtask to a specialist mini-agent (with its own tools and prompt), get the result, and continue — instead of doing everything itself. |
 | **Permission gates** | Granular "ask before this action" beyond the plan-mode coarse approval — so high-risk steps (overwrites, exports, deletions) can require explicit consent. |
-| **Plumbing improvements** | The four items in the bottom group together remove the class of bugs where state drifts when the user clicks too quickly, or where slides duplicate, or where the streaming UI doesn't refresh after approval. |
+| **Plumbing improvements** | Two of the four shipped on the `chat-loop-refactor` branch: the frontend now runs one continuous loop per turn, and user input is handed back to the loop race-free. This eliminates the class of bugs where state drifted on quick clicks or where the streaming UI didn't refresh after approval. The other two (parallel mid-stream tool dispatch + live per-message persistence) remain deferred — they only pay off once richer FE-side features land. |
