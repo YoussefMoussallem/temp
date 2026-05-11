@@ -2,18 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import { Save, AlertCircle, Check } from "lucide-react";
 import { useAdminApi, useAdminMutation } from "../hooks/useAdminApi";
 
-// Tenant-wide model selection. Four settings:
+// Tenant-wide model selection. Five settings:
 //   - default_model: main agent loop + cost recording.
 //   - search_model:  WebSearch tool (empty = fall back to default).
 //   - export_model:  ExportDeck tool + export-deck SSE endpoint
 //                    (empty = fall back to default).
 //   - title_model:   Conversation auto-title generator
 //                    (empty = fall back to default).
+//   - memory_model:  Memory structuring — converts a user's plain-
+//                    text memory input into the persisted schema
+//                    (slug / type / name / description / body).
+//                    (empty = fall back to default).
 //
 // The `<empty>` option is rendered as "(use default model)" for the
-// search/export/title selectors so admins can opt out without typing
-// anything. The default_model selector intentionally has no empty
-// option — every deployment must have a main model configured.
+// auxiliary selectors so admins can opt out without typing anything.
+// The default_model selector intentionally has no empty option —
+// every deployment must have a main model configured.
 
 const SUCCESS_RESET_MS = 2500;
 
@@ -80,6 +84,7 @@ export default function ModelsPage() {
     search_model: "",
     export_model: "",
     title_model: "",
+    memory_model: "",
   });
   const [serverState, setServerState] = useState(null);
   const [saveError, setSaveError] = useState(null);
@@ -88,7 +93,13 @@ export default function ModelsPage() {
   // Single source of truth for which keys this page manages. Adding a
   // new admin-managed model becomes a one-line change to this list +
   // a new <ModelSelect> row below.
-  const MODEL_KEYS = ["default_model", "search_model", "export_model", "title_model"];
+  const MODEL_KEYS = [
+    "default_model",
+    "search_model",
+    "export_model",
+    "title_model",
+    "memory_model",
+  ];
 
   useEffect(() => {
     if (settingsApi.data) {
@@ -185,6 +196,14 @@ export default function ModelsPage() {
               hint="Used to auto-generate a 4–6 word title for new conversations from the user's first message. Pick a small/fast model — title generation is short and latency-sensitive."
               value={form.title_model}
               onChange={(v) => setForm((p) => ({ ...p, title_model: v }))}
+              models={allModels}
+              allowEmpty
+            />
+            <ModelSelect
+              label="Memory Model"
+              hint="Used when a user creates or edits a long-term memory via the UI. Converts the user's plain-text input into the structured memory schema. A small/fast model is fine — input is short and the output is a single JSON object."
+              value={form.memory_model}
+              onChange={(v) => setForm((p) => ({ ...p, memory_model: v }))}
               models={allModels}
               allowEmpty
             />

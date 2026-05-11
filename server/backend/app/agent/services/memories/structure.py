@@ -139,8 +139,11 @@ async def structure_memory_text(
 
     valid_types = _USER_TYPES if scope == "user" else _PROJECT_TYPES
 
+    # Admin-managed memory model — empty value at admin level falls
+    # back to ``default_model`` at resolution time, so this is safe
+    # even on a fresh deploy where the admin hasn't picked anything.
     models = await app_settings_client.resolve(authorization)
-    model = models.default_model
+    model = models.memory_model
 
     adapter = get_adapter()
     request = ChatRequest(

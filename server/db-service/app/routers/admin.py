@@ -381,21 +381,32 @@ async def admin_transfer_ownership(
 # ``app/routers/settings.py``); the admin UI uses the two endpoints
 # below to read + update them.
 
-_MODEL_SETTING_KEYS = ("default_model", "search_model", "export_model", "title_model")
+_MODEL_SETTING_KEYS = (
+    "default_model",
+    "search_model",
+    "export_model",
+    "title_model",
+    "memory_model",
+)
 
 
 class UpdateModelSettingsRequest(BaseModel):
-    """At least one of the four keys; omitted keys are left unchanged.
+    """At least one of the keys; omitted keys are left unchanged.
 
-    ``title_model`` is used by the conversation auto-title flow
-    (``POST /api/agent/conversations/{id}/generate-title``). Empty
-    string falls back to ``default_model`` at resolution time, same as
-    search/export.
+    * ``title_model`` is used by the conversation auto-title flow
+      (``POST /api/agent/conversations/{id}/generate-title``).
+    * ``memory_model`` is used by the memory-structuring endpoint that
+      converts plain-text user input into the persisted memory schema
+      (``POST /api/agent/memories/from-text``).
+
+    Empty string falls back to ``default_model`` at resolution time,
+    same convention as the other auxiliaries.
     """
     default_model: str | None = None
     search_model: str | None = None
     export_model: str | None = None
     title_model: str | None = None
+    memory_model: str | None = None
 
 
 def _as_str(value) -> str:

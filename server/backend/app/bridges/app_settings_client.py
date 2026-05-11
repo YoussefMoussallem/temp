@@ -17,6 +17,7 @@ code path used:
 * ``search_model``:  empty → fall back to ``default_model`` resolved value.
 * ``export_model``:  empty → fall back to ``default_model`` resolved value.
 * ``title_model``:   empty → fall back to ``default_model`` resolved value.
+* ``memory_model``:  empty → fall back to ``default_model`` resolved value.
 
 Failure mode: any error fetching from db-service degrades to
 "return env defaults", because a stuck admin-config call must never
@@ -53,18 +54,24 @@ _lock = asyncio.Lock()
 class ModelDefaults:
     """Resolved model identifiers for a single turn.
 
-    All four fields are guaranteed non-empty strings — fallback chain
-    has already been applied (search/export/title → default → env).
+    All five fields are guaranteed non-empty strings — fallback chain
+    has already been applied (search/export/title/memory → default → env).
 
     ``title_model`` is used by the conversation auto-title flow only
     (``POST /api/agent/conversations/{id}/generate-title``); main-loop
-    turns never read it. Kept here rather than in a sibling resolver
-    so admins can configure all four in one round-trip.
+    turns never read it.
+
+    ``memory_model`` is used by the memory-structuring endpoint that
+    converts a user's plain-text input into the persisted memory
+    schema (``POST /api/agent/memories/from-text``). Lets admins
+    route memory writes to a cheaper / faster model without
+    affecting the agent loop.
     """
     default_model: str
     search_model: str
     export_model: str
     title_model: str
+    memory_model: str
 
 
 _cached_raw: dict[str, str] | None = None
@@ -143,18 +150,20 @@ async def resolve(authorization: str = "") -> ModelDefaults:
 
     env_default = _env_default()
     default_model = (raw.get("default_model") or "").strip() or env_default
-    # Search & export & title fall back to the resolved default model
-    # rather than env so the admin only needs to set ``default_model``
-    # to configure all four (they pick the same model for everything).
+    # Auxiliaries fall back to the resolved default model rather than
+    # env so the admin only needs to set ``default_model`` to configure
+    # all five (they pick the same model for everything).
     search_model = (raw.get("search_model") or "").strip() or default_model
     export_model = (raw.get("export_model") or "").strip() or default_model
     title_model = (raw.get("title_model") or "").strip() or default_model
+    memory_model = (raw.get("memory_model") or "").strip() or default_model
 
     return ModelDefaults(
         default_model=default_model,
         search_model=search_model,
         export_model=export_model,
         title_model=title_model,
+        memory_model=memory_model,
     )
 
 

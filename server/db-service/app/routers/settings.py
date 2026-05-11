@@ -18,7 +18,13 @@ from app.dependencies import CurrentUser, get_current_user
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
-_MODEL_SETTING_KEYS = ("default_model", "search_model", "export_model", "title_model")
+_MODEL_SETTING_KEYS = (
+    "default_model",
+    "search_model",
+    "export_model",
+    "title_model",
+    "memory_model",
+)
 
 
 def _as_str(value) -> str:
@@ -31,12 +37,12 @@ def _as_str(value) -> str:
 
 @router.get("/models")
 async def get_model_settings(_: CurrentUser = Depends(get_current_user)):
-    """Return the admin-set main / search / export / title model defaults.
+    """Return the admin-set main / search / export / title / memory model defaults.
 
     Empty string for a key means "no admin default set yet" — the
     backend treats that as "fall back to env" for ``default_model``
     and as "fall back to main-loop model" for ``search_model`` /
-    ``export_model`` / ``title_model``.
+    ``export_model`` / ``title_model`` / ``memory_model``.
     """
     pool: Pool = await get_pool()
     settings_map = await get_all_app_settings(pool)
