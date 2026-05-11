@@ -5,27 +5,29 @@ import MemoryComposer from "./MemoryComposer";
 import Skeleton from "../common/Skeleton";
 
 /**
- * One scope's memory body — list of friendly cards + AI composer.
+ * One scope's memory body — friendly cards + AI-driven composer.
  *
- * "Create" goes through ``onCreateFromText`` (LLM structures the input
- * invisibly). "Edit" on a card uses ``onUpsert`` directly (no AI —
- * the inline edit is for fine-tuning what the AI already produced).
+ * Two composer mount points:
+ *   - Top of the list when ``composing === true`` (new entry)
+ *   - In-place of a card when ``editingSlug === <slug>`` (edit existing)
  *
- * ``disabledReason`` is for the project-scope case when no project is
- * active. Lets the surface still be discoverable while explaining why
- * it can't be used right now.
+ * Both feed through ``onSaveFromText(text, slug?)`` — passing the
+ * slug makes the backend force-preserve it so the upsert overwrites.
+ * Omitting it lets the LLM pick (create flow).
+ *
+ * ``disabledReason`` is the project-scope no-active-project case.
  */
 export default function MemoryList({
   scope,
   memories,
   loading,
   error,
-  onCreateFromText,
-  onUpsert,
+  onSaveFromText,
   onDelete,
   disabledReason = null,
 }) {
   const [composing, setComposing] = useState(false);
+  const [editingSlug, setEditingSlug] = useState(null);
 
   if (disabledReason) {
     return (
@@ -38,8 +40,14 @@ export default function MemoryList({
   }
 
   const handleCreate = async (text) => {
-    await onCreateFromText(text);
+    await onSaveFromText(text);
     setComposing(false);
+  };
+
+  const handleEdit = async (text) => {
+    if (!editingSlug) return;
+    await onSaveFromText(text, editingSlug);
+    setEditingSlug(null);
   };
 
   return (
@@ -47,13 +55,17 @@ export default function MemoryList({
       {composing ? (
         <MemoryComposer
           scope={scope}
-          onCreate={handleCreate}
+          mode="create"
+          onSubmit={handleCreate}
           onCancel={() => setComposing(false)}
         />
       ) : (
         <button
           type="button"
-          onClick={() => setComposing(true)}
+          onClick={() => {
+            setComposing(true);
+            setEditingSlug(null);
+          }}
           className="self-start inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg border border-dashed border-gray-300 text-gray-600 hover:border-brand hover:text-brand transition-colors cursor-pointer"
         >
           <Plus size={12} />
@@ -91,14 +103,28 @@ export default function MemoryList({
 
       {memories.length > 0 && (
         <div className="flex flex-col gap-2">
-          {memories.map((m) => (
-            <MemoryCard
-              key={m.slug}
-              memory={m}
-              onUpsert={onUpsert}
-              onDelete={onDelete}
-            />
-          ))}
+          {memories.map((m) =>
+            editingSlug === m.slug ? (
+              <MemoryComposer
+                key={m.slug}
+                scope={scope}
+                mode="edit"
+                initialText={m.body}
+                onSubmit={handleEdit}
+                onCancel={() => setEditingSlug(null)}
+              />
+            ) : (
+              <MemoryCard
+                key={m.slug}
+                memory={m}
+                onEdit={(mem) => {
+                  setEditingSlug(mem.slug);
+                  setComposing(false);
+                }}
+                onDelete={onDelete}
+              />
+            ),
+          )}
         </div>
       )}
     </div>

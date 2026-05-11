@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ChevronRight, Pencil, Trash2, Check, X } from "lucide-react";
+import { ChevronRight, Pencil, Trash2, X } from "lucide-react";
 
 // Friendly category labels — the persisted "type" field is technical;
-// surface a consultant-readable label on the card. Falls back to title-
-// casing the raw type when we don't have a mapping.
+// surface a consultant-readable label on the card. Falls back to the
+// raw type when we don't have a mapping.
 const TYPE_LABEL = {
   user: "About you",
   feedback: "Preference",
@@ -38,85 +38,21 @@ function CategoryBadge({ type }) {
  * Friendly card view for one memory.
  *
  * View mode (default):
- *   - Category badge, title (``name``), one-line summary (``description``)
- *   - Click card to expand the full body
+ *   - Category badge, title, one-line summary
+ *   - Click to expand the full body
  *   - Hover reveals edit + delete controls
  *
- * Inline edit mode (after the user clicks Edit):
- *   - Title and summary become editable text inputs
- *   - Direct PUT via ``onUpsert`` (no AI re-structure for fine-tuning)
- *   - Save / Cancel buttons
+ * Edit mode is NOT handled inline anymore — the parent swaps the card
+ * out for a MemoryComposer pre-filled with the body. That keeps the
+ * AI structuring as the single edit path (matches create) so the user
+ * doesn't see slug/type/name/description as separate fields.
  *
- * Slug + type are intentionally never shown — they're internal handles
- * the agent uses to address entries; surfacing them would only confuse
- * a non-technical user.
+ * Slug + type are intentionally never shown to the user — they're
+ * internal handles the agent uses to address entries.
  */
-export default function MemoryCard({ memory, onUpsert, onDelete }) {
+export default function MemoryCard({ memory, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  // Drafts for inline edit mode.
-  const [draftName, setDraftName] = useState(memory.name);
-  const [draftDescription, setDraftDescription] = useState(memory.description);
-  const [draftBody, setDraftBody] = useState(memory.body);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-
-  const enterEdit = () => {
-    setDraftName(memory.name);
-    setDraftDescription(memory.description);
-    setDraftBody(memory.body);
-    setError(null);
-    setEditing(true);
-    setExpanded(true);
-  };
-
-  const cancelEdit = () => {
-    setEditing(false);
-    setError(null);
-  };
-
-  const handleSave = async () => {
-    const name = draftName.trim();
-    const description = draftDescription.trim();
-    const body = draftBody.trim();
-    if (!name) {
-      setError("Title is required.");
-      return;
-    }
-    if (!description) {
-      setError("Summary is required.");
-      return;
-    }
-    if (description.length > 150) {
-      setError("Summary must be ≤ 150 characters.");
-      return;
-    }
-    if (!body) {
-      setError("Body is required.");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      // Direct upsert with the same slug + type — title / summary /
-      // body all editable. Slug stays the addressable handle so the
-      // entry doesn't fork.
-      await onUpsert({
-        slug: memory.slug,
-        type: memory.type,
-        name,
-        description,
-        body,
-      });
-      setEditing(false);
-    } catch (e) {
-      setError(e?.message ?? "Save failed.");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <div className="group/card rounded-xl ring-1 ring-gray-200/70 bg-white hover:ring-gray-300 transition-shadow">
@@ -124,14 +60,13 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
       <div className="flex items-start gap-2 px-3 py-2.5">
         <button
           type="button"
-          onClick={() => !editing && setExpanded((v) => !v)}
-          disabled={editing}
+          onClick={() => setExpanded((v) => !v)}
           className="shrink-0 mt-0.5"
           aria-label={expanded ? "Collapse" : "Expand"}
         >
           <ChevronRight
             size={12}
-            className={`text-gray-400 transition-transform ${expanded ? "rotate-90" : ""} ${editing ? "opacity-40" : ""}`}
+            className={`text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`}
           />
         </button>
 
@@ -140,83 +75,25 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
             <CategoryBadge type={memory.type} />
           </div>
 
-          {editing ? (
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                Title
-              </label>
-              <input
-                type="text"
-                value={draftName}
-                onChange={(e) => setDraftName(e.target.value)}
-                maxLength={120}
-                placeholder="Short title — what is this memory about?"
-                className="text-[13px] font-semibold text-gray-800 border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand"
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="text-[12px] font-semibold text-gray-800 text-left hover:text-brand transition-colors cursor-pointer leading-snug"
-            >
-              {memory.name}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-[12px] font-semibold text-gray-800 text-left hover:text-brand transition-colors cursor-pointer leading-snug"
+          >
+            {memory.name}
+          </button>
 
-          {editing ? (
-            <div className="flex flex-col gap-1 mt-1">
-              <div className="flex items-baseline justify-between">
-                <label className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                  Summary (the one-line I show in lists)
-                </label>
-                <span
-                  className={`text-[10px] ${
-                    draftDescription.length > 150
-                      ? "text-red-600"
-                      : "text-gray-400"
-                  }`}
-                >
-                  {draftDescription.length}/150
-                </span>
-              </div>
-              <textarea
-                value={draftDescription}
-                onChange={(e) => setDraftDescription(e.target.value)}
-                maxLength={150}
-                rows={2}
-                placeholder="A concrete one-liner so I know when this is relevant."
-                className="text-[12px] text-gray-700 border border-gray-200 rounded-md px-3 py-2 resize-y min-h-[48px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand"
-              />
-            </div>
-          ) : (
-            <p className="text-[11px] text-gray-500 leading-snug">
-              {memory.description}
-            </p>
-          )}
-
-          {editing && (
-            <div className="flex flex-col gap-1 mt-2">
-              <label className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                Full note (the detail behind this memory)
-              </label>
-              <textarea
-                value={draftBody}
-                onChange={(e) => setDraftBody(e.target.value)}
-                rows={8}
-                placeholder="The full content. Plain prose or markdown."
-                className="text-[12px] font-mono text-gray-700 border border-gray-200 rounded-md px-3 py-2 resize-y min-h-[180px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand"
-              />
-            </div>
-          )}
+          <p className="text-[11px] text-gray-500 leading-snug">
+            {memory.description}
+          </p>
         </div>
 
-        {!editing && !confirmingDelete && (
+        {!confirmingDelete && (
           <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-0.5 shrink-0">
             <button
               type="button"
-              onClick={enterEdit}
-              title="Edit"
+              onClick={() => onEdit?.(memory)}
+              title="Edit with AI"
               className="w-6 h-6 rounded-md hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500"
             >
               <Pencil size={11} />
@@ -232,32 +109,6 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
           </div>
         )}
       </div>
-
-      {/* Edit footer — save / cancel */}
-      {editing && (
-        <div className="px-3 pb-3 border-t border-gray-100 pt-2 flex items-center gap-2 justify-end">
-          {error && (
-            <span className="text-[10px] text-red-600 mr-auto">{error}</span>
-          )}
-          <button
-            type="button"
-            onClick={cancelEdit}
-            disabled={saving}
-            className="text-[11px] font-medium px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-brand text-white hover:bg-brand/90 cursor-pointer inline-flex items-center gap-1 disabled:opacity-60"
-          >
-            <Check size={11} />
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      )}
 
       {/* Delete confirm */}
       {confirmingDelete && (
@@ -288,8 +139,10 @@ export default function MemoryCard({ memory, onUpsert, onDelete }) {
         </div>
       )}
 
-      {/* Expanded body */}
-      {expanded && !editing && (
+      {/* Expanded body — read-only preview. Editing goes through the
+          AI composer (parent renders) so the read view here is just a
+          dump of the body markdown. */}
+      {expanded && (
         <div className="px-3 pb-3 border-t border-gray-100 pt-2">
           <pre className="text-[11px] font-mono text-gray-600 whitespace-pre-wrap leading-relaxed bg-gray-50/60 rounded-md p-2 max-h-64 overflow-y-auto">
             {memory.body}

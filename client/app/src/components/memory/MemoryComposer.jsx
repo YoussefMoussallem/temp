@@ -1,28 +1,52 @@
 import { useState } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, X } from "lucide-react";
 
 /**
- * Natural-language memory composer.
+ * Natural-language memory composer — used for both create AND edit.
  *
- * One textarea. The user writes what they want the agent to remember.
- * On submit the backend LLM structures it into slug / type / name /
- * description / body and saves. The user never sees those fields —
- * the resulting card shows a friendly summary and lets them tweak
- * directly via inline edit.
+ * Create: pass no ``initialText`` and an ``onSubmit(text)`` that
+ * routes to a fresh save. The LLM picks the slug.
  *
- * Placeholder copy + framing differs by scope so the user has a clear
- * mental model of what gets remembered where.
+ * Edit: pass ``initialText`` (the existing body) and an
+ * ``onSubmit(text)`` that routes to a slug-preserving save. The
+ * backend forces the slug so the upsert overwrites in place.
+ *
+ * The user never sees slug / type / name / description / body
+ * separately — they write plain text, the AI structures.
  */
-export default function MemoryComposer({ scope, onCreate, onCancel }) {
-  const [text, setText] = useState("");
+export default function MemoryComposer({
+  scope,
+  initialText = "",
+  onSubmit,
+  onCancel,
+  mode = "create",
+}) {
+  const [text, setText] = useState(initialText);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const isUser = scope === "user";
+  const isEdit = mode === "edit";
+
+  const titleCopy = isEdit
+    ? isUser
+      ? "Update what I remember about you"
+      : "Update what I remember about this project"
+    : isUser
+      ? "What should I remember about you?"
+      : "What should I remember about this project?";
 
   const placeholder = isUser
     ? "e.g. I prefer terse summaries after tool calls.\ne.g. Don't use emoji in slides.\ne.g. I default to Strategy& brand for consulting decks."
     : "e.g. The audience is a PE investment committee — 5 senior partners.\ne.g. Pitch deadline is March 15.\ne.g. Headline takeaway: investment is feasible despite tier-2 market risks.";
+
+  const helpCopy = isEdit
+    ? "Edit in plain English. I'll restructure the saved version to match — keeping the same entry, not creating a new one."
+    : isUser
+      ? "Write in plain English. I'll keep this across every conversation you have."
+      : "Write in plain English. I'll only remember this when we're working on this deck.";
+
+  const submitLabel = isEdit ? "Update" : "Save";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,8 +55,10 @@ export default function MemoryComposer({ scope, onCreate, onCancel }) {
     setSaving(true);
     setError(null);
     try {
-      await onCreate(value);
-      setText("");
+      await onSubmit(value);
+      // Reset on create so the composer can be reused. Edit closes
+      // out via the parent.
+      if (!isEdit) setText("");
     } catch (err) {
       setError(err?.message ?? "Couldn't save. Try again?");
     } finally {
@@ -47,11 +73,20 @@ export default function MemoryComposer({ scope, onCreate, onCancel }) {
     >
       <div className="flex items-center gap-2">
         <Sparkles size={14} className="text-brand" />
-        <h3 className="text-[12px] font-semibold text-gray-800">
-          {isUser
-            ? "What should I remember about you?"
-            : "What should I remember about this project?"}
+        <h3 className="text-[12px] font-semibold text-gray-800 flex-1">
+          {titleCopy}
         </h3>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="w-6 h-6 rounded-md hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+            aria-label="Cancel"
+          >
+            <X size={14} className="text-gray-400" />
+          </button>
+        )}
       </div>
 
       <textarea
@@ -63,11 +98,7 @@ export default function MemoryComposer({ scope, onCreate, onCancel }) {
         className="text-[13px] border border-gray-200 rounded-lg px-3 py-3 resize-y min-h-[180px] focus:outline-none focus:ring-1 focus:ring-brand/40 focus:border-brand leading-relaxed"
       />
 
-      <p className="text-[10px] text-gray-400 leading-relaxed">
-        {isUser
-          ? "Write in plain English. I'll keep this across every conversation you have."
-          : "Write in plain English. I'll only remember this when we're working on this deck."}
-      </p>
+      <p className="text-[10px] text-gray-400 leading-relaxed">{helpCopy}</p>
 
       {error && (
         <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-md px-2.5 py-1.5">
@@ -92,12 +123,12 @@ export default function MemoryComposer({ scope, onCreate, onCancel }) {
           {saving ? (
             <>
               <Loader2 size={12} className="animate-spin" />
-              Saving…
+              {isEdit ? "Updating…" : "Saving…"}
             </>
           ) : (
             <>
               <Sparkles size={12} />
-              Save
+              {submitLabel}
             </>
           )}
         </button>

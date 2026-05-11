@@ -115,6 +115,7 @@ async def structure_memory_text(
     text: str,
     scope: str,
     existing_index: list[dict[str, Any]],
+    force_slug: str | None = None,
 ) -> dict[str, str]:
     """Call the default LLM to turn ``text`` into structured memory fields.
 
@@ -122,6 +123,12 @@ async def structure_memory_text(
     ``db_client.upsert_project_memory`` (whichever scope was requested).
     Raises ``ValueError`` if the model returns malformed JSON or omits a
     required field — caller surfaces this to the user as a 4xx.
+
+    ``force_slug`` is set when the caller is editing a specific existing
+    entry (the slug is the addressable handle — preserving it means the
+    upsert overwrites in place rather than potentially creating a
+    sibling if the LLM picks a slightly different slug for the
+    refined text).
     """
     from llm_provider import ChatRequest, Message  # noqa: PLC0415
 
@@ -165,10 +172,16 @@ async def structure_memory_text(
     # Coerce + trim. The db-service does its own validation but we want
     # clean errors before the round-trip — and the LLM occasionally
     # produces edge-case strings (extra whitespace, fence remnants).
-    slug = re.sub(r"[^a-z0-9_]", "_", str(result["slug"]).strip().lower())
-    slug = re.sub(r"_+", "_", slug).strip("_")[:64]
-    if not slug:
-        raise ValueError("LLM produced an empty slug after normalization")
+    if force_slug:
+        # Edit mode: ignore whatever slug the LLM picked. Keeping the
+        # original slug is what makes "edit" an overwrite rather than
+        # a fork.
+        slug = force_slug
+    else:
+        slug = re.sub(r"[^a-z0-9_]", "_", str(result["slug"]).strip().lower())
+        slug = re.sub(r"_+", "_", slug).strip("_")[:64]
+        if not slug:
+            raise ValueError("LLM produced an empty slug after normalization")
 
     type_ = str(result["type"]).strip().lower()
     if type_ not in valid_types:

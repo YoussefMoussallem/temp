@@ -1027,6 +1027,11 @@ class MemoryFromTextRequest(BaseModel):
     # Required when scope == "project". Ignored for scope == "user"
     # (the caller's own oid is used instead).
     project_id: str | None = None
+    # When present, forces the structured output to use THIS slug —
+    # signalling "I'm editing this specific entry". Without it the
+    # LLM picks a slug (potentially reusing an existing one if the
+    # text supersedes; potentially creating a fresh one if not).
+    slug: str | None = None
 
 
 @router.post("/memories/from-text")
@@ -1075,6 +1080,7 @@ async def memory_from_text(
             text=body.text,
             scope=body.scope,
             existing_index=existing,
+            force_slug=body.slug,
         )
     except ValueError as e:
         # Bad LLM output (non-JSON, missing field, malformed). Surface

@@ -26,7 +26,7 @@ export default function MemoryPage({
   getToken,
   onOpenUserMemory,
 }) {
-  const { memories, loading, error, createFromText, upsert, remove } =
+  const { memories, loading, error, saveFromText, remove } =
     useMemories(getToken, { scope, scopeId });
 
   const isUser = scope === "user";
@@ -78,8 +78,7 @@ export default function MemoryPage({
             memories={memories}
             loading={loading}
             error={error}
-            onCreateFromText={createFromText}
-            onUpsert={upsert}
+            onSaveFromText={saveFromText}
             onDelete={remove}
             disabledReason={
               !isUser && !scopeId

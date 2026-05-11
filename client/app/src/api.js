@@ -431,8 +431,16 @@ export async function deleteProjectMemory(token, projectId, slug) {
  *
  * For scope=user, project_id is ignored (caller's own oid is used).
  * For scope=project, project_id is required.
+ *
+ * Pass ``slug`` to edit a specific existing entry — the LLM's slug
+ * choice is overridden so the upsert overwrites in place. Omit
+ * ``slug`` for create (LLM picks one, possibly reusing an existing
+ * one if the text supersedes).
  */
-export async function createMemoryFromText(token, { scope, text, projectId = null }) {
+export async function saveMemoryFromText(
+  token,
+  { scope, text, projectId = null, slug = null },
+) {
   const res = await netFetch(`${AGENT}/memories/from-text`, {
     method: "POST",
     headers: authHeaders(token),
@@ -440,6 +448,7 @@ export async function createMemoryFromText(token, { scope, text, projectId = nul
       scope,
       text,
       project_id: scope === "project" ? projectId : null,
+      slug,
     }),
   });
   return checked(res);
