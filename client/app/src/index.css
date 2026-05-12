@@ -34,6 +34,14 @@
 
   --font-heading: "Poppins", sans-serif;
   --font-body: "Funnel Sans", sans-serif;
+
+  /* Streaming "AI is typing" indicator — hard 1s blink, terminal style. */
+  --animate-cursor-blink: cursor-blink 1s infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }
 
 body {

@@ -1,4 +1,3 @@
-import { Loader2 } from "lucide-react";
 import MessageBlocks from "./MessageBlocks";
 import UsageBlock from "./UsageBlock";
 
@@ -16,10 +15,10 @@ export default function StreamingIndicator({ stream, error }) {
   return (
     <div className="py-2">
       {!hasContent && (
-        <div className="flex items-center gap-2 text-[11px] text-gray-400 italic">
-          <Loader2 size={12} className="animate-spin text-brand" />
-          <span>Generating...</span>
-        </div>
+        <span
+          aria-label="Generating"
+          className="inline-block h-4 w-[2px] bg-brand align-text-bottom animate-cursor-blink"
+        />
       )}
 
       <MessageBlocks
