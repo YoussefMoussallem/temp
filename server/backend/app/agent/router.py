@@ -592,19 +592,6 @@ async def _stream_turn(
                     elif etype == "tool_call_start":
                         yield _sse("tool_call_start", {k: v for k, v in event.items() if k != "type"})
                     elif etype == "tool_call_done":
-                        # DIAGNOSTIC: log every tool_call_done so we can
-                        # see what the model is actually emitting per turn.
-                        # Especially useful for confirming/denying slide-
-                        # duplication theories. Args are truncated to keep
-                        # logs readable.
-                        _args_preview = str(event.get("arguments", ""))[:120]
-                        log.info(
-                            "tool_call_done conv=%s name=%s call_id=%s args=%s",
-                            body.conversation_id,
-                            event.get("name", ""),
-                            event.get("call_id", ""),
-                            _args_preview,
-                        )
                         yield _sse("tool_call_done", {k: v for k, v in event.items() if k != "type"})
                     elif etype == "tool_call_complete":
                         # Emitted by ``_execute_single_tool`` exactly once per
@@ -617,19 +604,6 @@ async def _stream_turn(
                         )
                     elif etype == "assistant":
                         msg = event.get("message", {}) or {}
-                        # DIAGNOSTIC: count tool_uses per assistant message.
-                        _content = msg.get("content") or []
-                        _tool_uses = [
-                            b for b in _content
-                            if isinstance(b, dict) and b.get("type") == "tool_use"
-                        ]
-                        if _tool_uses:
-                            log.info(
-                                "assistant_message conv=%s tool_use_count=%d names=%s",
-                                body.conversation_id,
-                                len(_tool_uses),
-                                [t.get("name", "") for t in _tool_uses],
-                            )
                         yield _sse("assistant_message", {"message": msg})
                         to_persist.append(("assistant", _as_storable_content(msg.get("content"))))
                     elif etype == "user":
