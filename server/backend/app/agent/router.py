@@ -457,8 +457,9 @@ async def agent_turn(
       - stream_start: turn beginning
       - text_delta {text}: assistant text chunk
       - thinking_delta {text}: thinking block chunk
-      - tool_call_start {id, name}: tool use beginning
-      - tool_call_done {id, name, input}: tool use complete
+      - tool_call_start {id, name}: model started emitting tool_use block
+      - tool_call_done {id, name, input}: model finished emitting tool_use block
+      - tool_call_complete {call_id, name, success}: tool execution finished
       - assistant_message {message}: full assistant message after streaming
       - state_update {state}: opaque ClientState blob to round-trip
       - tool_request {parallel_calls, ...}: frontend tools to execute
@@ -605,6 +606,15 @@ async def _stream_turn(
                             _args_preview,
                         )
                         yield _sse("tool_call_done", {k: v for k, v in event.items() if k != "type"})
+                    elif etype == "tool_call_complete":
+                        # Emitted by ``_execute_single_tool`` exactly once per
+                        # backend tool call, after the tool's execution has
+                        # finished (success or error). The FE seals the
+                        # tool's spinner when this lands.
+                        yield _sse(
+                            "tool_call_complete",
+                            {k: v for k, v in event.items() if k != "type"},
+                        )
                     elif etype == "assistant":
                         msg = event.get("message", {}) or {}
                         # DIAGNOSTIC: count tool_uses per assistant message.

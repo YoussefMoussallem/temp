@@ -31,6 +31,17 @@ export function handleStreamEvent(event, callbacks) {
         arguments: data.arguments,
       });
       break;
+    case "tool_call_complete":
+      // The tool actually finished executing on the backend. This is
+      // the wire signal the FE uses to seal the per-tool spinner.
+      // ``tool_call_done`` only marks the model's emit boundary —
+      // tool execution happens AFTER, and emits this when finished.
+      callbacks.onToolCallComplete?.({
+        callId: data.call_id || data.id || "",
+        name: data.name || "",
+        success: data.success !== false,
+      });
+      break;
     case "tool_request":
       callbacks.onToolRequest?.(data);
       break;

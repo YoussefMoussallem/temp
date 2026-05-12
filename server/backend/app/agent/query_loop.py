@@ -222,77 +222,98 @@ async def _execute_single_tool(
     tool_name = tool_use_block.get("name", "")
     tool_input = tool_use_block.get("input", {})
 
-    tool = find_tool_by_name(tools, tool_name)
-    if tool is None:
-        yield _make_tool_result_message(
-            tool_use_id, f"Unknown tool: {tool_name}", is_error=True
-        )
-        return
-
+    # ``tool_call_complete`` is yielded EXACTLY once per call (in the
+    # outer ``finally``), carrying the actual completion outcome. This
+    # is the wire-level signal the FE uses to seal the tool's spinner:
+    # ``tool_call_done`` from the model SDK only means "model finished
+    # emitting the tool_use block," not "tool finished executing."
+    # The execution window between those two is what tools like
+    # WebSearch spend doing real work — that's where the spinner needs
+    # to keep spinning.
+    is_error_outcome = False
     try:
-        if ctx.options.permissionMode == "plan" and not tool.is_read_only():
+        tool = find_tool_by_name(tools, tool_name)
+        if tool is None:
+            is_error_outcome = True
             yield _make_tool_result_message(
-                tool_use_id,
-                "You're in plan mode. Call ExitPlanMode to submit your plan for approval before making changes.",
-                is_error=True,
+                tool_use_id, f"Unknown tool: {tool_name}", is_error=True
             )
             return
 
-        validation = await tool.validate_input(tool_input, ctx)
-        if not validation.result:
-            yield _make_tool_result_message(
-                tool_use_id,
-                getattr(validation, "message", "Validation failed"),
-                is_error=True,
-            )
-            return
-
-        progress_q: asyncio.Queue = asyncio.Queue()
-
-        def on_progress(data: Any) -> None:
-            # Tools call this synchronously from inside `call`. Unbounded
-            # put so we never block the tool on a slow consumer; if a tool
-            # ever floods progress we'd add a maxsize + drop policy here.
-            progress_q.put_nowait(
-                {"type": "tool_progress", "tool_use_id": tool_use_id, "data": data}
-            )
-
-        async def _run_call() -> Any:
-            try:
-                return await tool.call(
-                    tool_input,
-                    ctx,
-                    can_use_tool,
-                    parent_message=parent_message,
-                    on_progress=on_progress,
+        try:
+            if ctx.options.permissionMode == "plan" and not tool.is_read_only():
+                is_error_outcome = True
+                yield _make_tool_result_message(
+                    tool_use_id,
+                    "You're in plan mode. Call ExitPlanMode to submit your plan for approval before making changes.",
+                    is_error=True,
                 )
-            finally:
-                # Unblock the drain loop whether the call returned or raised.
-                progress_q.put_nowait(_CALL_DONE)
+                return
 
-        task = asyncio.create_task(_run_call())
-        while True:
-            ev = await progress_q.get()
-            if ev is _CALL_DONE:
-                break
-            yield ev
+            validation = await tool.validate_input(tool_input, ctx)
+            if not validation.result:
+                is_error_outcome = True
+                yield _make_tool_result_message(
+                    tool_use_id,
+                    getattr(validation, "message", "Validation failed"),
+                    is_error=True,
+                )
+                return
 
-        result = await task  # re-raises if tool.call raised
+            progress_q: asyncio.Queue = asyncio.Queue()
 
-        if result.events:
-            for ev in result.events:
+            def on_progress(data: Any) -> None:
+                # Tools call this synchronously from inside `call`. Unbounded
+                # put so we never block the tool on a slow consumer; if a tool
+                # ever floods progress we'd add a maxsize + drop policy here.
+                progress_q.put_nowait(
+                    {"type": "tool_progress", "tool_use_id": tool_use_id, "data": data}
+                )
+
+            async def _run_call() -> Any:
+                try:
+                    return await tool.call(
+                        tool_input,
+                        ctx,
+                        can_use_tool,
+                        parent_message=parent_message,
+                        on_progress=on_progress,
+                    )
+                finally:
+                    # Unblock the drain loop whether the call returned or raised.
+                    progress_q.put_nowait(_CALL_DONE)
+
+            task = asyncio.create_task(_run_call())
+            while True:
+                ev = await progress_q.get()
+                if ev is _CALL_DONE:
+                    break
                 yield ev
 
-        block = tool.map_tool_result_to_block(result.data, tool_use_id)
+            result = await task  # re-raises if tool.call raised
+
+            if result.events:
+                for ev in result.events:
+                    yield ev
+
+            block = tool.map_tool_result_to_block(result.data, tool_use_id)
+            yield {
+                "type": "user",
+                "message": {"role": "user", "content": [block]},
+            }
+        except Exception as e:  # noqa: BLE001
+            is_error_outcome = True
+            log.warning("tool %s (%s) raised: %s", tool_name, tool_use_id, e, exc_info=True)
+            yield _make_tool_result_message(
+                tool_use_id, f"Tool execution failed: {e}", is_error=True
+            )
+    finally:
         yield {
-            "type": "user",
-            "message": {"role": "user", "content": [block]},
+            "type": "tool_call_complete",
+            "call_id": tool_use_id,
+            "name": tool_name,
+            "success": not is_error_outcome,
         }
-    except Exception as e:  # noqa: BLE001
-        log.warning("tool %s (%s) raised: %s", tool_name, tool_use_id, e, exc_info=True)
-        yield _make_tool_result_message(
-            tool_use_id, f"Tool execution failed: {e}", is_error=True
-        )
 
 
 async def _run_parallel_chunk(

@@ -152,6 +152,18 @@ function updateTool(blocks, id, patch) {
   return mutated ? next : blocks;
 }
 
+function sealActiveTools(blocks) {
+  let mutated = false;
+  const next = blocks.map((b) => {
+    if (b.type === "tool" && b.active) {
+      mutated = true;
+      return { ...b, active: false };
+    }
+    return b;
+  });
+  return mutated ? next : blocks;
+}
+
 // ─── Action types ───────────────────────────────────────────────────────────
 
 // Grouped by life-cycle to keep the switch readable. Centralised here so a
@@ -181,6 +193,7 @@ export const A = Object.freeze({
   SEARCH_DONE: "SEARCH_DONE",
   TOOL_CALL_START: "TOOL_CALL_START",
   TOOL_CALL_DONE: "TOOL_CALL_DONE",
+  TOOL_CALL_COMPLETE: "TOOL_CALL_COMPLETE",
   TOOL_PROGRESS: "TOOL_PROGRESS",
   STREAM_DONE: "STREAM_DONE",
 
@@ -409,6 +422,17 @@ export function chatReducer(state, action) {
     }
 
     case A.TOOL_CALL_DONE: {
+      // ``tool_call_done`` from the model SDK only marks the model
+      // having finished emitting the tool_use block — the tool
+      // itself doesn't start running until the assistant stream ends.
+      // Leave ``active`` alone; the real "tool finished" signal comes
+      // from the backend as TOOL_CALL_COMPLETE below.
+      return state;
+    }
+
+    case A.TOOL_CALL_COMPLETE: {
+      // Backend signal: this specific tool finished executing. Seal
+      // its spinner.
       const { id } = action.payload || {};
       return {
         ...state,
@@ -434,14 +458,17 @@ export function chatReducer(state, action) {
     }
 
     case A.STREAM_DONE: {
-      // Final cleanup pass — seal any in-flight thinking block so the
-      // persisted snapshot doesn't show a forever-spinning indicator.
+      // Final cleanup pass — seal any in-flight thinking block and
+      // any tool blocks that didn't get a TOOL_CALL_COMPLETE (e.g.
+      // interactive tools that exit via ``tool_request`` rather than
+      // running to a tool_result, or aborted legs). Belt-and-
+      // suspenders against forever-spinning indicators.
       const { usage, stopReason } = action.payload || {};
       return {
         ...state,
         stream: {
           ...state.stream,
-          blocks: sealOpenThinking(state.stream.blocks),
+          blocks: sealActiveTools(sealOpenThinking(state.stream.blocks)),
           usage: usage ?? state.stream.usage,
           stopReason: stopReason ?? state.stream.stopReason,
         },

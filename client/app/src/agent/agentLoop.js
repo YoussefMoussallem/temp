@@ -268,6 +268,11 @@ async function runLeg({
       if (b.type === "thinking" && b.active) b.active = false;
     }
   };
+  const sealLocalTools = () => {
+    for (const b of localBlocks) {
+      if (b.type === "tool" && b.active) b.active = false;
+    }
+  };
   const pushLocalSearch = (query) => {
     sealLocalThinking();
     const id = `s${localBlocks.length}`;
@@ -325,7 +330,13 @@ async function runLeg({
       });
     },
     onToolCallDone: ({ callId, name, arguments: args }) => {
-      updateLocalTool(callId, { active: false });
+      // ``tool_call_done`` is the model-SDK signal that the
+      // tool_use block has been fully emitted. The tool itself
+      // doesn't start running until the assistant stream ends, so we
+      // do NOT seal the spinner here — that happens when the
+      // backend emits ``tool_call_complete`` after the tool
+      // actually finishes (see onToolCallComplete below).
+      //
       // TodoWrite arguments contain the new todo list — extract and
       // dispatch so the sidebar updates in real time, before the
       // backend persists.
@@ -345,6 +356,16 @@ async function runLeg({
       dispatch({
         type: A.TOOL_CALL_DONE,
         payload: { id: callId, name },
+      });
+    },
+    onToolCallComplete: ({ callId }) => {
+      // Backend just yielded ``tool_call_complete`` for this tool —
+      // its execution is finished. Seal the local block and the
+      // reducer mirror.
+      updateLocalTool(callId, { active: false });
+      dispatch({
+        type: A.TOOL_CALL_COMPLETE,
+        payload: { id: callId },
       });
     },
     onToolProgress: (toolUseId, progress) => {
@@ -482,6 +503,7 @@ async function runLeg({
   // Final pass on local blocks — match the reducer's STREAM_DONE
   // sealing so the persisted snapshot reflects the same final state.
   sealLocalThinking();
+  sealLocalTools();
 
   legResult.blocks = localBlocks.map((b) => ({ ...b }));
   return legResult;
