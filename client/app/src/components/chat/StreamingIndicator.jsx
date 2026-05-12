@@ -15,10 +15,7 @@ export default function StreamingIndicator({ stream, error }) {
   return (
     <div className="py-2">
       {!hasContent && (
-        <span
-          aria-label="Generating"
-          className="inline-block h-4 w-[2px] bg-brand align-text-bottom animate-cursor-blink"
-        />
+        <span aria-label="Generating" className="streaming-cursor" />
       )}
 
       <MessageBlocks

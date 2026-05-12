@@ -22,6 +22,17 @@ import { proseClasses } from "../../utils/proseClasses";
 export default function MessageBlocks({ blocks, streaming = false, multipleSearches = false }) {
   if (!blocks || blocks.length === 0) return null;
   let searchSeen = 0;
+  // Index of the last text block — only that one carries the trailing
+  // cursor while streaming. If a tool/search/thinking is the trailing
+  // block, those have their own activity affordance and no cursor is
+  // attached.
+  const lastTextIdx = streaming
+    ? blocks.reduce(
+        (acc, b, i) =>
+          b.type === "text" && b.text && i > acc ? i : acc,
+        -1,
+      )
+    : -1;
   return (
     <>
       {blocks.map((b, i) => {
@@ -59,8 +70,16 @@ export default function MessageBlocks({ blocks, streaming = false, multipleSearc
         }
         if (b.type === "text") {
           if (!b.text) return null;
+          const isStreamingTail = i === lastTextIdx;
           return (
-            <div key={`tx-${i}`} className={proseClasses}>
+            <div
+              key={`tx-${i}`}
+              className={
+                isStreamingTail
+                  ? `${proseClasses} streaming-text-tail`
+                  : proseClasses
+              }
+            >
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{b.text}</ReactMarkdown>
             </div>
           );
