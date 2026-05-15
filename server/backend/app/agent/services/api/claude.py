@@ -121,8 +121,7 @@ def _normalize_messages_for_api(messages: list["Message"]) -> list[ProviderMessa
                 if isinstance(result_content, list):
                     # Collapse list-of-blocks to plain text for v1.
                     result_content = "".join(
-                        b.get("text", "") if isinstance(b, dict) else str(b)
-                        for b in result_content
+                        b.get("text", "") if isinstance(b, dict) else str(b) for b in result_content
                     )
                 out.append(
                     ProviderMessage(
@@ -232,12 +231,14 @@ async def query_model_with_streaming(
                 parsed_input = json.loads(raw_args) if raw_args else {}
             except json.JSONDecodeError:
                 parsed_input = {}
-            tool_use_blocks.append({
-                "type": "tool_use",
-                "id": call_id,
-                "name": name,
-                "input": parsed_input,
-            })
+            tool_use_blocks.append(
+                {
+                    "type": "tool_use",
+                    "id": call_id,
+                    "name": name,
+                    "input": parsed_input,
+                }
+            )
             pending_tool_args.pop(call_id, None)
             yield {"type": "tool_call_done", **event.data}
 

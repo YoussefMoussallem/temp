@@ -232,9 +232,10 @@ export default function SlideFilmstrip({
                       <div className="pointer-events-none">
                         <SlideThumbnail html={slide.html} />
                       </div>
-                      <div className={`text-[9px] py-1 text-center font-semibold transition-colors
+                      <div className={`text-[9px] py-1 px-1.5 text-center font-semibold transition-colors truncate
                         ${isSelected ? "text-brand bg-brand-dim" : "text-gray-400 bg-gray-50"}`}>
-                        {slide.title || i + 1}
+                        <span className="tabular-nums">{i + 1}.</span>{" "}
+                        {slide.title || "Untitled"}
                       </div>
                     </button>
 

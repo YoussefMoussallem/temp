@@ -50,7 +50,9 @@ class ReadMemoryToolImpl(BaseTool[ReadMemoryInput, str]):
         return DESCRIPTION
 
     async def validate_input(
-        self, input: Any, context: ToolUseContext,
+        self,
+        input: Any,
+        context: ToolUseContext,
     ) -> ValidationResult:
         scope = input.get("scope") if isinstance(input, dict) else getattr(input, "scope", None)
         if scope == "user" and not context.user_id:
@@ -60,10 +62,7 @@ class ReadMemoryToolImpl(BaseTool[ReadMemoryInput, str]):
             )
         if scope == "project" and not context.project_id:
             return ValidationError(
-                message=(
-                    "No active project on context. Switch to a project or "
-                    "use scope=\"user\"."
-                ),
+                message=('No active project on context. Switch to a project or use scope="user".'),
                 errorCode=2,
             )
         if not context.authorization:

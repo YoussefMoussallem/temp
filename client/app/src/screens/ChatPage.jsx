@@ -21,6 +21,7 @@ export default function ChatPage({
   toggleSlides,
   onOpenUserMemory,
   onOpenProjectMemory,
+  onOpenMasters,
 }) {
   const deck = useDeck();
   const chat = useChatContext();
@@ -51,6 +52,7 @@ export default function ChatPage({
         onBackToProjects={onBackToProjects}
         onOpenUserMemory={onOpenUserMemory}
         onOpenProjectMemory={onOpenProjectMemory}
+        onOpenMasters={onOpenMasters}
       />
 
       {deck.forbidden && (

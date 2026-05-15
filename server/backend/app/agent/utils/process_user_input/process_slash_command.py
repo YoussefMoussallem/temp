@@ -14,7 +14,7 @@ Public entry points:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from app_logger import get_logger
 
@@ -29,7 +29,7 @@ from ..create_command_input_message import (
     wrap_xml,
 )
 from ..slash_command_parsing import parse_slash_command
-from ...commands import find_command, get_command, has_command, load_all_commands
+from ...commands import get_command, has_command, load_all_commands
 
 if TYPE_CHECKING:
     from ...Tool import ToolUseContext
@@ -55,6 +55,7 @@ class ProcessedInput:
       - next_input / submit_next_input: used by the local-command follow-up
         convention (a command can chain into another prompt).
     """
+
     messages: list[dict] = field(default_factory=list)
     should_query: bool = True
     allowed_tools: list[str] | None = None
@@ -182,9 +183,7 @@ async def process_slash_command(
 
     parsed = parse_slash_command(input_str)
     if parsed is None:
-        caveat = user_message(
-            "Commands are in the form /command [args]."
-        )
+        caveat = user_message("Commands are in the form /command [args].")
         return ProcessedInput(
             messages=[caveat, *attachments],
             should_query=False,

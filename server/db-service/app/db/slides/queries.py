@@ -39,6 +39,13 @@ SHIFT_DOWN_FROM = """
     WHERE project_id = $1 AND position >= $2
 """
 
+# Close a gap left at `position` (exclusive) by shifting later slides up.
+SHIFT_UP_FROM = """
+    UPDATE slides
+    SET position = position - 1, updated_at = now()
+    WHERE project_id = $1 AND position > $2
+"""
+
 # Renumber one slide. Used by reorder.
 SET_POSITION = """
     UPDATE slides

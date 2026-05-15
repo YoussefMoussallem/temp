@@ -5,13 +5,13 @@ DESCRIPTION = (
     "entry is removed from the index and no longer surfaces in future "
     "turns.\n\n"
     "## ALWAYS call before this\n\n"
-    "  - `ListUserMemories` (for scope=\"user\") or `ListProjectMemories` "
-    "(for scope=\"project\") — to confirm the slug actually exists and "
+    '  - `ListUserMemories` (for scope="user") or `ListProjectMemories` '
+    '(for scope="project") — to confirm the slug actually exists and '
     "that you're targeting the right entry. Guessing the slug is the "
     "most common way DeleteMemory misses the intended target.\n\n"
     "## When to delete\n\n"
-    "  - User explicitly asks to forget something (\"forget that I want "
-    "X\", \"drop the deadline memory\").\n"
+    '  - User explicitly asks to forget something ("forget that I want '
+    'X", "drop the deadline memory").\n'
     "  - Existing entry is wrong AND nothing useful to overwrite it "
     "with. (If there IS a useful replacement — e.g. user changed their "
     "mind — prefer `SaveMemory` with the same slug. Overwrite is "
@@ -23,8 +23,8 @@ DESCRIPTION = (
     "## When NOT to delete\n\n"
     "  - User is refining or correcting, not retracting — use "
     "`SaveMemory` with the SAME slug to overwrite. Delete is for "
-    "\"this fact should not exist at all\", not \"this fact has "
-    "changed\".\n"
+    '"this fact should not exist at all", not "this fact has '
+    'changed".\n'
     "  - You're unsure whether the entry is stale — leave it. A "
     "slightly outdated memory is cheaper than re-teaching the user a "
     "fact later.\n\n"

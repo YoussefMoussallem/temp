@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "langfuse-client"
 version = "0.1.0"
 description = "Langfuse initialisation and tracing helpers"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "langfuse>=4.1.0",
 ]

@@ -134,8 +134,11 @@ export function DeckProvider({ projectId, getToken, children }) {
   );
 
   // User-driven delete from the slides panel. Optimistically removes the
-  // slide; on API failure, restores it via SLIDE_CREATED (which sorts back
-  // into its original `position`).
+  // slide; on success, applies the server's renumbered list (delete
+  // closes the position gap inside the same transaction, so every
+  // following slide has a new `position`). On failure, restores the
+  // removed slide via SLIDE_CREATED (which sorts back into its old
+  // position).
   const deleteSlide = useCallback(
     async (slideId) => {
       if (!slideId) return;
@@ -146,7 +149,14 @@ export function DeckProvider({ projectId, getToken, children }) {
 
       try {
         const token = getToken ? await getToken() : null;
-        await deleteSlideApi(token, slideId);
+        const serverSlides = await deleteSlideApi(token, slideId);
+        if (activeProjectRef.current !== projectId) return;
+        // ``serverSlides`` is the full ordered post-renumber list. Trust
+        // it as authoritative — the optimistic SLIDE_DELETED above only
+        // got the visible row right, not the positions of survivors.
+        if (Array.isArray(serverSlides)) {
+          dispatch({ type: "SLIDES_REPLACED", slides: serverSlides });
+        }
       } catch (err) {
         if (activeProjectRef.current !== projectId) return;
         dispatch({ type: "SLIDE_CREATED", slide });

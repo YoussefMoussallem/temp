@@ -33,8 +33,7 @@ async def call(_args: str, ctx: Any) -> dict:
         return {
             "type": "value",
             "value": (
-                "Couldn't clear the conversation: missing request context. "
-                "Try reloading the page."
+                "Couldn't clear the conversation: missing request context. Try reloading the page."
             ),
         }
 
@@ -61,12 +60,15 @@ async def _load():
     return import_module(__name__)
 
 
-clear: Command = cast(Command, {
-    "type": "local",
-    "execution": "server",
-    "name": "clear",
-    "description": "Clear the conversation history",
-    "aliases": ["reset"],
-    "supports_non_interactive": True,
-    "load": _load,
-})
+clear: Command = cast(
+    Command,
+    {
+        "type": "local",
+        "execution": "server",
+        "name": "clear",
+        "description": "Clear the conversation history",
+        "aliases": ["reset"],
+        "supports_non_interactive": True,
+        "load": _load,
+    },
+)

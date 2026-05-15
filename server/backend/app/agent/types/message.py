@@ -39,6 +39,7 @@ TypedMessageContent = list[ContentItem]
 
 class _InnerMessage(TypedDict, total=False):
     """The nested `message` field on most Message variants."""
+
     role: str
     id: str
     content: MessageContent
@@ -50,6 +51,7 @@ class Message(TypedDict, total=False):
     Base message type. All fields except `type` and `uuid` are optional —
     the source TS uses `[key: string]: unknown` to allow arbitrary extra keys.
     """
+
     type: MessageType
     uuid: UUID
     isMeta: bool

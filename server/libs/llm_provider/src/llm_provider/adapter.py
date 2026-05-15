@@ -77,7 +77,6 @@ class LLMAdapter:
         )
         self.reasoning_effort = reasoning_effort
 
-
     async def stream(self, request: ChatRequest, system_prompt: str) -> AsyncIterator[StreamEvent]:
         """Stream a model response as normalised :class:`StreamEvent`\\ s.
 
@@ -151,27 +150,38 @@ class LLMAdapter:
                             call_id = item.call_id
                             name = item.name
                             func_calls[item_id] = (call_id, name)
-                            yield StreamEvent("tool_call_start", {
-                                "call_id": call_id, "name": name,
-                            })
+                            yield StreamEvent(
+                                "tool_call_start",
+                                {
+                                    "call_id": call_id,
+                                    "name": name,
+                                },
+                            )
 
                     case "response.function_call_arguments.delta":
                         item_id = event.item_id
                         if event.delta and item_id in func_calls:
                             call_id = func_calls[item_id][0]
-                            yield StreamEvent("tool_call_delta", {
-                                "call_id": call_id, "delta": event.delta,
-                            })
+                            yield StreamEvent(
+                                "tool_call_delta",
+                                {
+                                    "call_id": call_id,
+                                    "delta": event.delta,
+                                },
+                            )
 
                     case "response.function_call_arguments.done":
                         item_id = event.item_id
                         if item_id in func_calls:
                             call_id, name = func_calls[item_id]
-                            yield StreamEvent("tool_call_done", {
-                                "call_id": call_id,
-                                "name": name,
-                                "arguments": event.arguments,
-                            })
+                            yield StreamEvent(
+                                "tool_call_done",
+                                {
+                                    "call_id": call_id,
+                                    "name": name,
+                                    "arguments": event.arguments,
+                                },
+                            )
 
                     case "response.web_search_call.in_progress":
                         yield StreamEvent("web_search_start", {})
@@ -226,7 +236,8 @@ class LLMAdapter:
             if gen_ctx:
                 gen_ctx.__exit__(type(e), e, e.__traceback__)
             raise ProviderConnectionError(
-                "Request timed out", provider=_PROVIDER,
+                "Request timed out",
+                provider=_PROVIDER,
             ) from e
         except openai.APIConnectionError as e:
             if gen_ctx:
@@ -250,13 +261,16 @@ class LLMAdapter:
         if gen_ctx:
             gen_ctx.__exit__(None, None, None)
 
-        yield StreamEvent("done", {
-            "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
-        })
+        yield StreamEvent(
+            "done",
+            {
+                "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+            },
+        )
 
-
-
-    async def complete(self, request: ChatRequest, system_prompt: str) -> AsyncIterator[StreamEvent]:
+    async def complete(
+        self, request: ChatRequest, system_prompt: str
+    ) -> AsyncIterator[StreamEvent]:
         """Buffer text deltas, forward everything else live.
 
         Intended for callers that want tool/search status updates in real
@@ -305,11 +319,12 @@ class LLMAdapter:
         if span_ctx:
             span_ctx.__exit__(None, None, None)
 
-        yield StreamEvent("done", {
-            "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
-        })
-
-
+        yield StreamEvent(
+            "done",
+            {
+                "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+            },
+        )
 
     async def generate(self, request: ChatRequest, system_prompt: str = "") -> str:
         """Single non-streaming call — returns the assembled text response.
@@ -349,7 +364,8 @@ class LLMAdapter:
             if gen_ctx:
                 gen_ctx.__exit__(type(e), e, e.__traceback__)
             raise ProviderConnectionError(
-                "Request timed out", provider=_PROVIDER,
+                "Request timed out",
+                provider=_PROVIDER,
             ) from e
         except openai.APIConnectionError as e:
             if gen_ctx:
@@ -428,7 +444,8 @@ class LLMAdapter:
             if gen_ctx:
                 gen_ctx.__exit__(type(e), e, e.__traceback__)
             raise ProviderConnectionError(
-                "Request timed out", provider=_PROVIDER,
+                "Request timed out",
+                provider=_PROVIDER,
             ) from e
         except openai.APIConnectionError as e:
             if gen_ctx:
@@ -465,4 +482,3 @@ class LLMAdapter:
         """
         models = await self.client.models.list()
         return [{"id": m.id, "owned_by": m.owned_by} for m in models.data]
-

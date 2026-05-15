@@ -66,8 +66,10 @@ async def discover_skills(cwd: str | Path | None = None) -> list[PromptCommand]:
     fetch from a remote skill registry — keeping the signature async-ready
     means callers don't churn when that lands.
     """
-    return _dedupe_last_wins([
-        bundled_skills(),
-        load_skills_dir(home_skills_dir(), source="user"),
-        load_skills_dir(project_skills_dir(cwd), source="project"),
-    ])
+    return _dedupe_last_wins(
+        [
+            bundled_skills(),
+            load_skills_dir(home_skills_dir(), source="user"),
+            load_skills_dir(project_skills_dir(cwd), source="project"),
+        ]
+    )

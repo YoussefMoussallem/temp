@@ -18,7 +18,6 @@ Render methods omitted (chat-ui owns rendering per placement memory).
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
@@ -56,6 +55,7 @@ from .utils import (
 
 class WebFetchInput(BaseModel):
     """Input schema for WebFetchTool."""
+
     url: str = Field(description="The URL to fetch content from")
     prompt: str = Field(
         default="",
@@ -65,6 +65,7 @@ class WebFetchInput(BaseModel):
 
 class WebFetchOutput(BaseModel):
     """Output schema for WebFetchTool."""
+
     bytes: int = Field(description="Size of the fetched content in bytes")
     code: int = Field(description="HTTP response code")
     code_text: str = Field(description="HTTP response code text")
@@ -124,9 +125,7 @@ class WebFetchToolImpl(BaseTool[WebFetchInput, WebFetchOutput]):
             f"{DESCRIPTION}"
         )
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         url = input.get("url", "") if isinstance(input, dict) else getattr(input, "url", "")
         if not url:
             return ValidationError(message="Missing url", errorCode=1)
@@ -141,9 +140,7 @@ class WebFetchToolImpl(BaseTool[WebFetchInput, WebFetchOutput]):
             )
         return ValidationOk()
 
-    async def check_permissions(
-        self, input: Any, context: ToolUseContext
-    ) -> PermissionResult:
+    async def check_permissions(self, input: Any, context: ToolUseContext) -> PermissionResult:
         """
         v1: preapproved-host shortcut + default-allow fallback.
         Phase 4 wires the full 4-level rule hierarchy
@@ -212,6 +209,7 @@ class WebFetchToolImpl(BaseTool[WebFetchInput, WebFetchOutput]):
         is_preapproved = False
         try:
             from .preapproved import is_preapproved_url
+
             is_preapproved = is_preapproved_url(url)
         except Exception:
             pass

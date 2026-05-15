@@ -37,6 +37,7 @@ _DROP_TAGS = ("script", "style", "noscript", "iframe", "object", "embed", "svg")
 @dataclass
 class FetchedContent:
     """Successful fetch result."""
+
     content: str
     bytes: int
     code: int
@@ -49,6 +50,7 @@ class FetchedContent:
 @dataclass
 class RedirectResult:
     """Result when URL redirects to a different host (Phase 5: detection)."""
+
     type: str
     original_url: str
     redirect_url: str

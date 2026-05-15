@@ -62,7 +62,8 @@ AUTO_COMPACT_THRESHOLD_TOKENS = (
 if _override > 0:
     log.warning(
         "autocompact threshold overridden via EDWIN_AUTOCOMPACT_THRESHOLD_TOKENS: %d (default %d)",
-        _override, _DEFAULT_AUTO_COMPACT_THRESHOLD_TOKENS,
+        _override,
+        _DEFAULT_AUTO_COMPACT_THRESHOLD_TOKENS,
     )
 
 
@@ -108,7 +109,10 @@ async def autocompact(
             return CompactionResult.no_op(), consecutive_failures
         log.info(
             "autocompact firing: tokens=%d threshold=%d (snip_freed=%d, prior_failures=%d)",
-            tokens, AUTO_COMPACT_THRESHOLD_TOKENS, snip_tokens_freed, consecutive_failures,
+            tokens,
+            AUTO_COMPACT_THRESHOLD_TOKENS,
+            snip_tokens_freed,
+            consecutive_failures,
         )
 
     try:
@@ -117,7 +121,9 @@ async def autocompact(
         new_failures = consecutive_failures + 1
         log.exception(
             "autocompact failed (consecutive_failures %d → %d): %s",
-            consecutive_failures, new_failures, e,
+            consecutive_failures,
+            new_failures,
+            e,
         )
         # Return a no_op result so the loop continues with the original
         # messages. The next iteration may retry; Phase 3.5's with_retry

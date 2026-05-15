@@ -23,14 +23,17 @@ async def _get_prompt(args: str, _ctx: Any) -> list[dict]:
     return [{"type": "text", "text": text}]
 
 
-export: Command = cast(Command, {
-    "type": "prompt",
-    "execution": "server",
-    "name": "export",
-    "description": "Export the current deck (default: HTML)",
-    "argument_hint": "[format]",
-    "source": "builtin",
-    "progress_message": "exporting deck",
-    "content_length": 200,
-    "get_prompt_for_command": _get_prompt,
-})
+export: Command = cast(
+    Command,
+    {
+        "type": "prompt",
+        "execution": "server",
+        "name": "export",
+        "description": "Export the current deck (default: HTML)",
+        "argument_hint": "[format]",
+        "source": "builtin",
+        "progress_message": "exporting deck",
+        "content_length": 200,
+        "get_prompt_for_command": _get_prompt,
+    },
+)

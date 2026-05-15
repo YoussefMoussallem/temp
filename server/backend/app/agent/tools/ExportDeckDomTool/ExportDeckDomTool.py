@@ -82,9 +82,7 @@ class ExportDeckDomToolImpl(BaseTool[ExportDeckDomInput, ExportDeckDomOutput]):
 
     async def description(self, input: Any, options: dict) -> str:
         name = (
-            input.get("filename")
-            if isinstance(input, dict)
-            else getattr(input, "filename", None)
+            input.get("filename") if isinstance(input, dict) else getattr(input, "filename", None)
         )
         return (
             f'Export deck to "{name}" via DOM render'
@@ -92,9 +90,7 @@ class ExportDeckDomToolImpl(BaseTool[ExportDeckDomInput, ExportDeckDomOutput]):
             else "Export deck to PowerPoint via DOM render"
         )
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         if not context.project_id:
             return ValidationError(
                 message="No active project — cannot export without project context.",
@@ -116,9 +112,7 @@ class ExportDeckDomToolImpl(BaseTool[ExportDeckDomInput, ExportDeckDomOutput]):
         on_progress: Any | None = None,
     ) -> ToolResult[ExportDeckDomOutput]:
         parsed: ExportDeckDomInput = (
-            args
-            if isinstance(args, ExportDeckDomInput)
-            else ExportDeckDomInput(**args)
+            args if isinstance(args, ExportDeckDomInput) else ExportDeckDomInput(**args)
         )
 
         filename = _normalize_filename(parsed.filename)
@@ -155,28 +149,30 @@ class ExportDeckDomToolImpl(BaseTool[ExportDeckDomInput, ExportDeckDomOutput]):
         ]
 
         if on_progress is not None:
-            on_progress({
-                "message": f"Sending {total} slides to browser for DOM export...",
-                "current": 0,
-                "total": total,
-            })
+            on_progress(
+                {
+                    "message": f"Sending {total} slides to browser for DOM export...",
+                    "current": 0,
+                    "total": total,
+                }
+            )
 
         return ToolResult(
             data=ExportDeckDomOutput(filename=filename, slide_count=total),
             # `deck_export_dom_ready` flows through router.py's catch-all
             # SSE forwarder; the frontend captures it in streamHandler.js
             # and runs `buildAndDownloadDomPptx` in the browser.
-            events=[{
-                "type": "deck_export_dom_ready",
-                "filename": filename,
-                "slide_count": total,
-                "slides": payload_slides,
-            }],
+            events=[
+                {
+                    "type": "deck_export_dom_ready",
+                    "filename": filename,
+                    "slide_count": total,
+                    "slides": payload_slides,
+                }
+            ],
         )
 
-    def map_tool_result_to_block(
-        self, content: ExportDeckDomOutput, tool_use_id: str
-    ) -> dict:
+    def map_tool_result_to_block(self, content: ExportDeckDomOutput, tool_use_id: str) -> dict:
         if content.slide_count == 0:
             text = (
                 "No slides to export — the deck is empty. "

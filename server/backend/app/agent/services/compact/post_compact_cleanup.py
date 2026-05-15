@@ -51,9 +51,9 @@ def _strip_cache_control(block: Any) -> Any:
 
 def _block_tool_use_id(block: Any) -> str | None:
     """Return the tool_use_id this block contributes to the pair-set:
-      - tool_use     → the block's own ``id``
-      - tool_result  → the referenced ``tool_use_id``
-      - everything else → None
+    - tool_use     → the block's own ``id``
+    - tool_result  → the referenced ``tool_use_id``
+    - everything else → None
     """
     if not isinstance(block, Mapping):
         return None

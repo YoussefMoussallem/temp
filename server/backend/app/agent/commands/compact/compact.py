@@ -75,7 +75,8 @@ async def _persist_boundary(ctx: Any, boundary: Any) -> None:
     except Exception as e:  # noqa: BLE001
         log.exception(
             "/compact: failed to persist boundary for conv=%s: %s",
-            conversation_id, e,
+            conversation_id,
+            e,
         )
 
 
@@ -121,10 +122,7 @@ async def call(args: str, ctx: Any) -> dict:
     if result.skipped:
         return {
             "type": "value",
-            "value": (
-                "Conversation is too short to usefully compact — "
-                "nothing to summarize."
-            ),
+            "value": ("Conversation is too short to usefully compact — nothing to summarize."),
         }
 
     if result.boundary is not None:
@@ -154,14 +152,17 @@ async def _load():
     return import_module(__name__)
 
 
-compact: Command = cast(Command, {
-    "type": "local",
-    "execution": "server",
-    "name": "compact",
-    "description": "Summarize earlier conversation history (manual)",
-    "aliases": [],
-    "supports_non_interactive": True,
-    # No longer hidden — Phase 3.2 makes /compact functional.
-    "is_hidden": False,
-    "load": _load,
-})
+compact: Command = cast(
+    Command,
+    {
+        "type": "local",
+        "execution": "server",
+        "name": "compact",
+        "description": "Summarize earlier conversation history (manual)",
+        "aliases": [],
+        "supports_non_interactive": True,
+        # No longer hidden — Phase 3.2 makes /compact functional.
+        "is_hidden": False,
+        "load": _load,
+    },
+)

@@ -58,10 +58,7 @@ def get_request_id() -> str:
 
 def _scope_headers(scope: Scope) -> Mapping[str, str]:
     """Decode ASGI bytes-headers into a lowercase string dict."""
-    return {
-        k.decode("latin-1").lower(): v.decode("latin-1")
-        for k, v in scope.get("headers", [])
-    }
+    return {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
 
 
 class RequestContextMiddleware:
@@ -103,9 +100,7 @@ class RequestContextMiddleware:
                 # Inject X-Request-ID into the outgoing headers.
                 # ASGI ``headers`` is a list of (bytes, bytes) tuples.
                 message_headers = list(message.get("headers", []))
-                message_headers.append(
-                    (_REQUEST_ID_HEADER_BYTES, req_id.encode("latin-1"))
-                )
+                message_headers.append((_REQUEST_ID_HEADER_BYTES, req_id.encode("latin-1")))
                 message = {**message, "headers": message_headers}
             await send(message)
 

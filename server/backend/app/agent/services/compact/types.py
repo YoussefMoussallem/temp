@@ -55,6 +55,7 @@ class CompactBoundary:
     so the UI can show different copy ("you ran /compact" vs "context
     was getting full"). Source uses the same flag for the same purpose.
     """
+
     type: Literal["compact_boundary"] = "compact_boundary"
     tokens_before: int = 0
     tokens_after: int = 0
@@ -63,9 +64,7 @@ class CompactBoundary:
     manual: bool = False
     # ISO8601 string. Frozen dataclass + datetime fields don't compose
     # well; serializing to string here matches the SSE wire format.
-    compacted_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    compacted_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 # ── Per-pass info (microcompact) ───────────────────────────────────────────
@@ -89,6 +88,7 @@ class CompactionInfo:
     deferral pattern (Phase 3.3) means edits are committed but not
     yet visible in messages this turn.
     """
+
     tokens_freed: int = 0
     edits_applied: int = 0
     pending_cache_edits: list[Any] = field(default_factory=list)
@@ -109,6 +109,7 @@ class SnipResult:
 
     The pipeline integration is the contract; the algorithm is TBD.
     """
+
     messages: list[Any]
     tokens_freed: int = 0
 
@@ -121,6 +122,7 @@ class MicrocompactResult:
     a ``CompactionInfo`` instance when at least one edit was made.
     Tests/observers branch on truthy-ness without poking internals.
     """
+
     messages: list[Any]
     compaction_info: CompactionInfo | None = None
 
@@ -134,6 +136,7 @@ class CollapseResult:
     threshold, skipping the expensive LLM summary. The ``collapsed_count``
     feeds analytics ("how often does collapse save us from autocompact?").
     """
+
     messages: list[Any]
     collapsed_count: int = 0
 
@@ -159,6 +162,7 @@ class CompactionResult:
     duplicated here so callers can grab it without unpacking the
     nested boundary.
     """
+
     summary: str = ""
     boundary: CompactBoundary | None = None
     kept_messages: list[Any] = field(default_factory=list)

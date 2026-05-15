@@ -56,6 +56,7 @@ UuidFn = Callable[[], str]
 @dataclass
 class QueryDeps:
     """I/O dependencies for the query loop."""
+
     # Model call (Phase 1.3 wires to litellm_bridge).
     callModel: CallModelFn = None  # type: ignore[assignment]
     # Compaction stages — see ``services/compact/`` for impls.

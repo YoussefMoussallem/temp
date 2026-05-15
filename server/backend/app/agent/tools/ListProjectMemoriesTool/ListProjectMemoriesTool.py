@@ -22,6 +22,7 @@ from .prompt import DESCRIPTION, LIST_PROJECT_MEMORIES_TOOL_NAME
 
 class ListProjectMemoriesInput(BaseModel):
     """No arguments — project_id comes from request context."""
+
     pass
 
 
@@ -41,7 +42,9 @@ class ListProjectMemoriesToolImpl(BaseTool[ListProjectMemoriesInput, str]):
         return DESCRIPTION
 
     async def validate_input(
-        self, input: Any, context: ToolUseContext,
+        self,
+        input: Any,
+        context: ToolUseContext,
     ) -> ValidationResult:
         if not context.project_id:
             return ValidationError(
@@ -85,15 +88,13 @@ class ListProjectMemoriesToolImpl(BaseTool[ListProjectMemoriesInput, str]):
             "",
             (
                 "Long-term facts saved about this project. Use "
-                "ReadMemory(scope=\"project\", slug=...) to fetch a "
+                'ReadMemory(scope="project", slug=...) to fetch a '
                 "specific entry's body."
             ),
             "",
         ]
         for r in rows:
-            lines.append(
-                f"- [{r['slug']}] ({r['type']}) {r['name']} — {r['description']}"
-            )
+            lines.append(f"- [{r['slug']}] ({r['type']}) {r['name']} — {r['description']}")
         return ToolResult(data="\n".join(lines))
 
 

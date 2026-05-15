@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from app.bridges import db_client
 
@@ -21,7 +21,12 @@ from .prompt import DESCRIPTION, REORDER_SLIDE_TOOL_NAME
 
 
 class ReorderSlideInput(BaseModel):
-    slide_id: str = Field(description="UUID of the slide to move.")
+    # AliasChoices: ListSlides returns each slide keyed as ``id``; accept
+    # either name on the way in so a benign mismatch doesn't fail.
+    slide_id: str = Field(
+        validation_alias=AliasChoices("slide_id", "id"),
+        description="UUID of the slide to move. Also accepts `id`.",
+    )
     after_slide_id: str | None = Field(
         default=None,
         description=(
@@ -40,15 +45,11 @@ class ReorderSlideToolImpl(BaseTool[ReorderSlideInput, str]):
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         if not context.authorization:
-            return ValidationError(
-                message="Missing authorization on tool context.", errorCode=1
-            )
+            return ValidationError(message="Missing authorization on tool context.", errorCode=1)
         if isinstance(input, dict):
-            slide_id = input.get("slide_id")
+            slide_id = input.get("slide_id") or input.get("id")
             after = input.get("after_slide_id")
         else:
             slide_id = getattr(input, "slide_id", None)
@@ -56,9 +57,7 @@ class ReorderSlideToolImpl(BaseTool[ReorderSlideInput, str]):
         if not slide_id:
             return ValidationError(message="`slide_id` is required.", errorCode=2)
         if after == slide_id:
-            return ValidationError(
-                message="`after_slide_id` cannot equal `slide_id`.", errorCode=3
-            )
+            return ValidationError(message="`after_slide_id` cannot equal `slide_id`.", errorCode=3)
         return ValidationOk()
 
     async def call(

@@ -57,13 +57,12 @@ _DEFAULT_WARNING_THRESHOLD_TOKENS = int(AUTO_COMPACT_THRESHOLD_TOKENS * 70 / 80)
 # autocompact threshold (which itself may be overridden), keeping the
 # two thresholds linked unless the user explicitly decouples them.
 _override = get_settings().compaction.warning_threshold_tokens
-WARNING_THRESHOLD_TOKENS = (
-    _override if _override > 0 else _DEFAULT_WARNING_THRESHOLD_TOKENS
-)
+WARNING_THRESHOLD_TOKENS = _override if _override > 0 else _DEFAULT_WARNING_THRESHOLD_TOKENS
 if _override > 0:
     log.warning(
         "warning threshold overridden via EDWIN_WARNING_THRESHOLD_TOKENS: %d (default %d)",
-        _override, _DEFAULT_WARNING_THRESHOLD_TOKENS,
+        _override,
+        _DEFAULT_WARNING_THRESHOLD_TOKENS,
     )
 
 
@@ -85,6 +84,7 @@ class WarningState:
     diagnostics on the wire lets future telemetry land without a
     schema bump.
     """
+
     should_show: bool
     current_tokens: int
     autocompact_threshold_tokens: int
@@ -111,11 +111,7 @@ def compute_warning_state(messages: Sequence[Any]) -> WarningState:
       total exceeds ``WARNING_THRESHOLD_TOKENS``.
     """
     current = estimate_messages_tokens(messages)
-    fill_pct = (
-        current / AUTO_COMPACT_THRESHOLD_TOKENS
-        if AUTO_COMPACT_THRESHOLD_TOKENS > 0
-        else 0.0
-    )
+    fill_pct = current / AUTO_COMPACT_THRESHOLD_TOKENS if AUTO_COMPACT_THRESHOLD_TOKENS > 0 else 0.0
     return WarningState(
         should_show=current >= WARNING_THRESHOLD_TOKENS,
         current_tokens=current,

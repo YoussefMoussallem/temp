@@ -30,6 +30,7 @@ class SystemContext:
     Mirrors the data assembled by src/context.ts:getSystemContext, but the
     file-reading happens on desktop and the result is sent here.
     """
+
     git_status: str | None = None
     branch: str | None = None
     main_branch: str | None = None
@@ -47,6 +48,7 @@ class UserContext:
     Mirrors src/context.ts:getUserContext, but the CLAUDE.md reading
     happens on desktop and the rendered text is sent here.
     """
+
     claude_md: str | None = None
     current_date: str | None = None
 
@@ -76,7 +78,9 @@ def assemble_system_prompt(
             if system_context.branch:
                 git_section.append(f"Current branch: {system_context.branch}")
             if system_context.main_branch:
-                git_section.append(f"Main branch (you will usually use this for PRs): {system_context.main_branch}")
+                git_section.append(
+                    f"Main branch (you will usually use this for PRs): {system_context.main_branch}"
+                )
             if system_context.user_name:
                 git_section.append(f"Git user: {system_context.user_name}")
             if system_context.recent_commits:

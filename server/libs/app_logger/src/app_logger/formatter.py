@@ -11,12 +11,32 @@ from datetime import datetime, timezone
 # logging machinery itself and should NOT surface as a user-visible field.
 # Everything else on ``record.__dict__`` is assumed to have come from the
 # caller's ``extra={...}`` (or a LoggerAdapter) and is rendered as a field.
-_RESERVED: frozenset[str] = frozenset({
-    "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
-    "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
-    "created", "msecs", "relativeCreated", "thread", "threadName",
-    "processName", "process", "message", "taskName",
-})
+_RESERVED: frozenset[str] = frozenset(
+    {
+        "name",
+        "msg",
+        "args",
+        "levelname",
+        "levelno",
+        "pathname",
+        "filename",
+        "module",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "lineno",
+        "funcName",
+        "created",
+        "msecs",
+        "relativeCreated",
+        "thread",
+        "threadName",
+        "processName",
+        "process",
+        "message",
+        "taskName",
+    }
+)
 
 
 def _stringify(value: Any) -> str:
@@ -70,8 +90,9 @@ class JsonFormatter(logging.Formatter):
         # ISO-8601 UTC timestamp trimmed to milliseconds — matches what most
         # log viewers expect and keeps output width predictable.
         ts = (
-            datetime.fromtimestamp(record.created, tz=timezone.utc)
-            .strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+            datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%S.%f"
+            )[:-3]
             + "Z"
         )
         header = f"[{ts}] {record.levelname:<8} {record.name}"

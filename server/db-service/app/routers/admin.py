@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.db import Pool, cache_del, get_pool
@@ -312,9 +312,7 @@ async def admin_update_project(
     project = await get_project(pool, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    updated = await update_project(
-        pool, project_id, name=body.name, description=body.description
-    )
+    updated = await update_project(pool, project_id, name=body.name, description=body.description)
     await _bust_for_all_members(pool, project_id)
     return _serialize_row(asdict(updated))
 
@@ -353,9 +351,7 @@ async def admin_transfer_ownership(
             status_code=404,
             detail="No Edwin user with that email — they need to log in once first.",
         )
-    updated = await transfer_ownership(
-        pool, project_id, new_owner_oid=new_owner.azure_oid
-    )
+    updated = await transfer_ownership(pool, project_id, new_owner_oid=new_owner.azure_oid)
     if updated is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -402,6 +398,7 @@ class UpdateModelSettingsRequest(BaseModel):
     Empty string falls back to ``default_model`` at resolution time,
     same convention as the other auxiliaries.
     """
+
     default_model: str | None = None
     search_model: str | None = None
     export_model: str | None = None

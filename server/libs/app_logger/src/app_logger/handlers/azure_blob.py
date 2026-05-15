@@ -50,7 +50,9 @@ class AzureBlobHandler(logging.Handler):
         self._flush_lock = threading.Lock()
         self._stop = threading.Event()
 
-        self._thread = threading.Thread(target=self._flush_loop, daemon=True, name="AzureBlobHandler")
+        self._thread = threading.Thread(
+            target=self._flush_loop, daemon=True, name="AzureBlobHandler"
+        )
         self._thread.start()
 
     # ── setup ────────────────────────────────────────────────────────

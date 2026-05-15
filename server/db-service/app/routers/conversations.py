@@ -56,6 +56,7 @@ class UpdateConversationRequest(BaseModel):
     today. Other rename-able fields would land here as additional optional
     fields; the router applies whatever's set and ignores ``None``s.
     """
+
     title: str | None = None
 
 
@@ -67,6 +68,7 @@ class AddTokensRequest(BaseModel):
     user's history. ``cost_usd`` is optional — callers that don't yet
     compute cost can omit it and the cost column stays unchanged.
     """
+
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
@@ -97,9 +99,7 @@ async def _require_conversation_access(
     conversation = await get_conversation(pool, conversation_id)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    await require_project_access(
-        pool, conversation.project_id, user, min_role=min_role
-    )
+    await require_project_access(pool, conversation.project_id, user, min_role=min_role)
     return conversation
 
 
@@ -204,9 +204,7 @@ async def add_conversation_tokens(
     failure here doesn't fail the turn.
     """
     if body.input_tokens < 0 or body.output_tokens < 0 or body.cost_usd < 0:
-        raise HTTPException(
-            status_code=400, detail="Deltas must be non-negative"
-        )
+        raise HTTPException(status_code=400, detail="Deltas must be non-negative")
     pool: Pool = await get_pool()
     conversation = await _require_conversation_access(
         pool, conversation_id, user, min_role="editor"

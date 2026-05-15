@@ -41,7 +41,8 @@ logger = get_logger(__name__)
 
 
 async def _unhandled_exception_handler(
-    request: Request, exc: Exception,
+    request: Request,
+    exc: Exception,
 ) -> JSONResponse:
     """Log the trace with request context, return a stable JSON 500."""
     req_id = get_request_id()

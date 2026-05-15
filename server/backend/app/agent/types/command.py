@@ -12,7 +12,7 @@ local-command path instead.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Literal, TypedDict
+from typing import TYPE_CHECKING, Awaitable, Callable, Literal, TypedDict
 
 if TYPE_CHECKING:
     from ..Tool import ToolUseContext
@@ -30,6 +30,7 @@ class CommandBase(TypedDict, total=False):
     commands (``/clear``, ``/plan``, ``/cost``) are inherently client-side —
     backend holds metadata so discovery is unified, frontend runs them.
     """
+
     availability: list[CommandAvailability]
     description: str
     has_user_specified_description: bool
@@ -43,9 +44,7 @@ class CommandBase(TypedDict, total=False):
     version: str
     disable_model_invocation: bool
     user_invocable: bool
-    loaded_from: Literal[
-        "skills", "plugin", "managed", "bundled", "mcp", "commands_DEPRECATED"
-    ]
+    loaded_from: Literal["skills", "plugin", "managed", "bundled", "mcp", "commands_DEPRECATED"]
     kind: Literal["workflow"]
     immediate: bool
     is_sensitive: bool
@@ -58,15 +57,14 @@ class CommandBase(TypedDict, total=False):
 
 class PromptCommand(CommandBase, total=False):
     """Variant: expands to model-bound messages."""
+
     type: Literal["prompt"]
     progress_message: str
     content_length: int
     arg_names: list[str]
     allowed_tools: list[str]
     model: str
-    source: Literal[
-        "user", "project", "managed", "builtin", "mcp", "plugin", "bundled"
-    ]
+    source: Literal["user", "project", "managed", "builtin", "mcp", "plugin", "bundled"]
     plugin_info: dict
     disable_non_interactive: bool
     hooks: dict
@@ -75,9 +73,7 @@ class PromptCommand(CommandBase, total=False):
     agent: str
     effort: str
     paths: list[str]
-    get_prompt_for_command: Callable[
-        [str, "ToolUseContext"], Awaitable[list[dict]]
-    ]
+    get_prompt_for_command: Callable[[str, "ToolUseContext"], Awaitable[list[dict]]]
 
 
 class LocalCommandResultSkip(TypedDict):
@@ -94,11 +90,13 @@ LocalCommandResult = LocalCommandResultSkip | LocalCommandResultValue
 
 class LocalCommandModule(TypedDict):
     """Shape returned by LocalCommand.load()."""
+
     call: Callable[[str, "ToolUseContext"], Awaitable[LocalCommandResult]]
 
 
 class LocalCommand(CommandBase, total=False):
     """Variant: runs synchronously; output wrapped in <local-command-stdout>."""
+
     type: Literal["local"]
     supports_non_interactive: bool
     load: Callable[[], Awaitable[LocalCommandModule]]

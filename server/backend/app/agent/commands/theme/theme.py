@@ -23,14 +23,17 @@ async def _get_prompt(args: str, _ctx: Any) -> list[dict]:
     return [{"type": "text", "text": text}]
 
 
-theme: Command = cast(Command, {
-    "type": "prompt",
-    "execution": "server",
-    "name": "theme",
-    "description": "Apply a theme to the current deck",
-    "argument_hint": "[theme-name]",
-    "source": "builtin",
-    "progress_message": "applying theme",
-    "content_length": 200,
-    "get_prompt_for_command": _get_prompt,
-})
+theme: Command = cast(
+    Command,
+    {
+        "type": "prompt",
+        "execution": "server",
+        "name": "theme",
+        "description": "Apply a theme to the current deck",
+        "argument_hint": "[theme-name]",
+        "source": "builtin",
+        "progress_message": "applying theme",
+        "content_length": 200,
+        "get_prompt_for_command": _get_prompt,
+    },
+)

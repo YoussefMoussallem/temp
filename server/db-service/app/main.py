@@ -13,15 +13,20 @@ from app.routers.usage import router as usage_router
 from app.routers.admin import router as admin_router
 from app.routers.settings import router as settings_router
 from app.routers.slides import router as slides_router
+from app.routers.masters import router as masters_router
 from app.routers.projects import router as projects_router
 from app.routers.messages import router as messages_router
 from app.routers.conversations import router as conversations_router
 from app.routers.memories import router as memories_router
+from app.storage import init_blob_client
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    # Blob storage is optional — masters create with bytes will 503
+    # when it's not configured. init_blob_client() is sync + idempotent.
+    init_blob_client()
     yield
     await close_db()
 
@@ -52,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(conversations_router, prefix="/api")
     app.include_router(messages_router, prefix="/api")
     app.include_router(slides_router, prefix="/api")
+    app.include_router(masters_router, prefix="/api")
     app.include_router(memories_router, prefix="/api")
 
     @app.get("/health")

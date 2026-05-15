@@ -61,13 +61,18 @@ class SaveProjectMemoryToolImpl(BaseTool[SaveProjectMemoryInput, str]):
         return False
 
     def is_concurrency_safe(self, input: Any = None) -> bool:
-        return False
+        # Different slugs → independent UPSERTs at the DB level.
+        # Two saves to the same slug race into last-write-wins, which
+        # is the documented "overwrite" semantic anyway.
+        return True
 
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
     async def validate_input(
-        self, input: Any, context: ToolUseContext,
+        self,
+        input: Any,
+        context: ToolUseContext,
     ) -> ValidationResult:
         slug = input.get("slug") if isinstance(input, dict) else getattr(input, "slug", None)
         type_ = input.get("type") if isinstance(input, dict) else getattr(input, "type", None)
@@ -130,8 +135,7 @@ class SaveProjectMemoryToolImpl(BaseTool[SaveProjectMemoryInput, str]):
 
         return ToolResult(
             data=(
-                f"Saved [project:{saved['slug']}] "
-                f"(type={saved['type']}, name={saved['name']!r})."
+                f"Saved [project:{saved['slug']}] (type={saved['type']}, name={saved['name']!r})."
             ),
         )
 

@@ -68,8 +68,11 @@ async def get_pool(config: PostgresConfig | None = None) -> Pool:
         cfg = config or PostgresConfig()
         logger.info(
             "Creating connection pool: %s:%d/%s (min=%d, max=%d)",
-            cfg.host, cfg.port, cfg.database,
-            cfg.min_pool_size, cfg.max_pool_size,
+            cfg.host,
+            cfg.port,
+            cfg.database,
+            cfg.min_pool_size,
+            cfg.max_pool_size,
         )
         connect_kwargs: dict[str, Any] = {}
         if cfg.use_entra_auth:

@@ -70,6 +70,7 @@ class CurrentUser:
                       specifically need the Azure OID don't break if we
                       ever change how ``user_id`` is derived.
     """
+
     user_id: str
     email: str
     display_name: str
@@ -89,14 +90,21 @@ _jwks_lock = threading.Lock()
 def _jwks_ssl_context() -> ssl.SSLContext:
     """Build the SSL context used for fetching Microsoft's JWKS.
 
-    Cert resolution order:
-      1. ``$SSL_CERT_FILE`` — system-level Python convention; respected
-         here for parity with installs that already point Python at a
-         custom bundle this way.
-      2. ``certifi.where()`` — bundled CA roots, the default for direct
-         internet access.
+    CA bundle resolution (first match wins). **Do not** commit PEM files
+    into the repo — set one of these env vars to a path on disk instead:
+
+      1. ``SSL_CERT_FILE`` — common Python / OpenSSL convention.
+      2. ``REQUESTS_CA_BUNDLE`` — used by many HTTP stacks; same effect here.
+      3. ``AZURE_CACERT_PATH`` — same name as db-service / Langfuse-style
+         corporate-proxy setups so one export can cover multiple services.
+      4. ``certifi.where()`` — default public CA bundle.
     """
-    cafile = os.getenv("SSL_CERT_FILE") or certifi.where()
+    cafile = (
+        os.getenv("SSL_CERT_FILE")
+        or os.getenv("REQUESTS_CA_BUNDLE")
+        or os.getenv("AZURE_CACERT_PATH")
+        or certifi.where()
+    )
     return ssl.create_default_context(cafile=cafile)
 
 
@@ -112,10 +120,7 @@ def _get_jwks_client() -> jwt.PyJWKClient:
         with _jwks_lock:
             if _jwks_client is None:
                 tenant_id = get_settings().azure_ad.tenant_id
-                jwks_url = (
-                    f"https://login.microsoftonline.com/{tenant_id}"
-                    "/discovery/v2.0/keys"
-                )
+                jwks_url = f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys"
                 _jwks_client = jwt.PyJWKClient(
                     jwks_url,
                     cache_keys=True,
@@ -125,6 +130,7 @@ def _get_jwks_client() -> jwt.PyJWKClient:
 
 
 # ── Shared token validation ──────────────────────────────────────────
+
 
 def _validate_token(
     authorization: str | None,
@@ -191,12 +197,7 @@ def _validate_token(
     oid = claims.get("oid") or claims.get("sub")
     # Email claim naming is inconsistent across tenants / account types,
     # so we try several in order of preference.
-    email = (
-        claims.get("preferred_username")
-        or claims.get("email")
-        or claims.get("upn")
-        or ""
-    )
+    email = claims.get("preferred_username") or claims.get("email") or claims.get("upn") or ""
     display_name = claims.get("name") or email
 
     return CurrentUser(
@@ -208,6 +209,7 @@ def _validate_token(
 
 
 # ── Dependencies ─────────────────────────────────────────────────────
+
 
 async def get_current_user(
     authorization: str | None = Header(default=None),

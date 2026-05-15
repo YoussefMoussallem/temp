@@ -87,6 +87,7 @@ async def call(_args: str, ctx: Any) -> dict:
     max_output = 0
     try:
         from app.bridges.litellm_bridge import get_all_model_info
+
         for info in get_all_model_info():
             if info.get("name") == model:
                 context_window = int(info.get("max_input_tokens") or 0)
@@ -99,8 +100,7 @@ async def call(_args: str, ctx: Any) -> dict:
         usage_pct = min(100.0, (input_tokens / context_window) * 100)
         remaining = max(0, context_window - input_tokens)
         lines = [
-            f"{usage_pct:.1f}% context used "
-            f"({input_tokens:,} / {context_window:,} tokens)",
+            f"{usage_pct:.1f}% context used ({input_tokens:,} / {context_window:,} tokens)",
             f"Model: {model}",
             f"Remaining: {remaining:,} tokens",
         ]
@@ -123,12 +123,15 @@ async def _load():
     return import_module(__name__)
 
 
-context: Command = cast(Command, {
-    "type": "local",
-    "execution": "server",
-    "name": "context",
-    "description": "Show current context-window usage",
-    "aliases": [],
-    "supports_non_interactive": True,
-    "load": _load,
-})
+context: Command = cast(
+    Command,
+    {
+        "type": "local",
+        "execution": "server",
+        "name": "context",
+        "description": "Show current context-window usage",
+        "aliases": [],
+        "supports_non_interactive": True,
+        "load": _load,
+    },
+)

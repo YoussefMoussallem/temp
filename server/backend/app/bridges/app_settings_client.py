@@ -67,6 +67,7 @@ class ModelDefaults:
     route memory writes to a cheaper / faster model without
     affecting the agent loop.
     """
+
     default_model: str
     search_model: str
     export_model: str
@@ -91,8 +92,7 @@ async def _fetch_raw(authorization: str) -> dict[str, str] | None:
             payload = resp.json()
     except Exception:
         log.warning(
-            "Failed to fetch model settings from db-service; "
-            "falling back to env defaults",
+            "Failed to fetch model settings from db-service; falling back to env defaults",
             exc_info=True,
         )
         return None

@@ -8,6 +8,15 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    test: {
+      // jsdom gives us window/document for component tests; node mode
+      // would require every test that touches the DOM to opt in.
+      environment: "jsdom",
+      globals: true,
+      // Pin a single tests/ root so test discovery is fast and the
+      // file layout matches the backend convention.
+      include: ["tests/**/*.{test,spec}.{js,jsx}"],
+    },
     server: {
       proxy: {
         "/api": {

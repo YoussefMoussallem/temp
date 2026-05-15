@@ -27,9 +27,7 @@ async def create_project(
         async with conn.transaction():
             row = await conn.fetchrow(queries.INSERT, user_id, name, description)
             project = Project.from_record(row)
-            await conn.execute(
-                member_queries.INSERT, user_id, project.id, "owner"
-            )
+            await conn.execute(member_queries.INSERT, user_id, project.id, "owner")
     return project
 
 
@@ -70,9 +68,7 @@ async def list_all_projects_with_stats(pool: Pool) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-async def transfer_ownership(
-    pool: Pool, project_id: UUID, *, new_owner_oid: str
-) -> dict | None:
+async def transfer_ownership(pool: Pool, project_id: UUID, *, new_owner_oid: str) -> dict | None:
     """Atomically transfer a project from its current owner to another user.
 
     Three steps inside one transaction:
@@ -93,13 +89,7 @@ async def transfer_ownership(
             if old_owner_oid == new_owner_oid:
                 return dict(current)
 
-            updated = await conn.fetchrow(
-                queries.TRANSFER_OWNER, project_id, new_owner_oid
-            )
-            await conn.execute(
-                member_queries.DEMOTE_OWNER_TO_EDITOR, project_id, old_owner_oid
-            )
-            await conn.fetchrow(
-                member_queries.UPSERT_AS_OWNER, new_owner_oid, project_id
-            )
+            updated = await conn.fetchrow(queries.TRANSFER_OWNER, project_id, new_owner_oid)
+            await conn.execute(member_queries.DEMOTE_OWNER_TO_EDITOR, project_id, old_owner_oid)
+            await conn.fetchrow(member_queries.UPSERT_AS_OWNER, new_owner_oid, project_id)
     return dict(updated)

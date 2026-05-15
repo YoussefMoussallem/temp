@@ -23,14 +23,13 @@ Two-phase init
 """
 
 from __future__ import annotations
-import httpx 
-import httpx 
+import httpx
 from app_logger import get_logger
 from app.config import get_settings
-import os 
 
 
 logger = get_logger(__name__)
+
 
 def init_langfuse() -> None:
     """Initialize the Langfuse client once, if enabled in settings.
@@ -42,12 +41,13 @@ def init_langfuse() -> None:
     if not obs.langfuse_enabled:
         return
     from langfuse_client import init_client  # noqa: PLC0415  (deferred import - see module docstring)
+
     headers = {}
     proxy_token = obs.langfuse_proxy_token.get_secret_value()
     if proxy_token:
         headers["Proxy-Authorization"] = proxy_token
     httpx_client = httpx.Client(verify=obs.langfuse_cacert_path, headers=headers, timeout=5.0)
-    
+
     try:
         init_client(
             public_key=obs.langfuse_public_key,
@@ -59,4 +59,3 @@ def init_langfuse() -> None:
         logger.info("Langfuse tracing enabled (host=%s)", obs.langfuse_base_url)
     except Exception:
         logger.warning("Failed to initialise Langfuse client", exc_info=True)
-

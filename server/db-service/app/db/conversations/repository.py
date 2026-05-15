@@ -25,9 +25,7 @@ async def get_conversation(pool: Pool, conversation_id: UUID) -> Conversation | 
     return Conversation.from_record(row) if row else None
 
 
-async def list_conversations_by_project(
-    pool: Pool, project_id: UUID
-) -> list[Conversation]:
+async def list_conversations_by_project(pool: Pool, project_id: UUID) -> list[Conversation]:
     rows = await pool.fetch(queries.LIST_BY_PROJECT, project_id)
     return [Conversation.from_record(r) for r in rows]
 
@@ -36,9 +34,7 @@ async def delete_conversation(pool: Pool, conversation_id: UUID) -> None:
     await pool.execute(queries.DELETE, conversation_id)
 
 
-async def update_title(
-    pool: Pool, conversation_id: UUID, *, title: str
-) -> Conversation | None:
+async def update_title(pool: Pool, conversation_id: UUID, *, title: str) -> Conversation | None:
     """Rename a conversation. Returns the updated row or ``None`` if it
     no longer exists. Caller is responsible for trim/length validation;
     this just writes the SQL.
@@ -74,9 +70,7 @@ async def add_tokens(
     return Conversation.from_record(row) if row else None
 
 
-async def reset_after_clear(
-    pool: Pool, conversation_id: UUID
-) -> Conversation | None:
+async def reset_after_clear(pool: Pool, conversation_id: UUID) -> Conversation | None:
     """Zero token counters + message_count, bump last_active_at.
 
     Called by the messages-collection DELETE endpoint after the rows are

@@ -52,7 +52,4 @@ class PostgresConfig(BaseSettings):
         """
         if self.dsn:
             return self.dsn
-        return (
-            f"postgresql://{self.user}:{self.password}"
-            f"@{self.host}:{self.port}/{self.database}"
-        )
+        return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"

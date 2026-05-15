@@ -40,9 +40,7 @@ async def list_resources(
             return []
         return [{"server": name, **entry} for entry in entries]
 
-    results = await asyncio.gather(
-        *[_one(s.name) for s in statuses], return_exceptions=False
-    )
+    results = await asyncio.gather(*[_one(s.name) for s in statuses], return_exceptions=False)
     out: list[dict[str, Any]] = []
     for chunk in results:
         out.extend(chunk)

@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, AsyncGenerator
 
 from .prompts import build_system_prompt_string, get_system_prompt
-from .query_loop import State, QueryParams, query
+from .query_loop import QueryParams, query
 from .query.deps import QueryDeps
 from .query.transitions import Terminal
 from .Tool import ToolUseContext, ToolUseContextOptions, Tools
@@ -140,6 +140,7 @@ async def _build_system_prompt(
     base = base + await _build_skills_appendix()
     return base
 
+
 if TYPE_CHECKING:
     from .types.message import Message
 
@@ -160,6 +161,7 @@ class ClientState:
 
     v1 fields are minimal — expand as features land.
     """
+
     iteration: int = 0
     # Compaction tracking (Phase 3).
     compact_tracking: dict[str, Any] = field(default_factory=dict)

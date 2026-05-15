@@ -11,10 +11,7 @@ when the user changes their mind (or the model refines an entry).
 """
 
 # ── user_memories ──────────────────────────────────────────────────────────
-_USER_COLUMNS = (
-    "id, user_id, slug, type, name, description, body, "
-    "created_at, updated_at"
-)
+_USER_COLUMNS = "id, user_id, slug, type, name, description, body, created_at, updated_at"
 
 USER_LIST = f"""
     SELECT {_USER_COLUMNS}

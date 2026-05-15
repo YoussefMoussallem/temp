@@ -61,9 +61,7 @@ class ReadMcpResourceToolImpl(BaseTool[ReadMcpResourceInput, ReadMcpResourceOutp
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         parsed = input if isinstance(input, dict) else {}
         if isinstance(input, ReadMcpResourceInput):
             parsed = input.model_dump()

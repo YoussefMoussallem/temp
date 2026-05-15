@@ -7,8 +7,8 @@ DESCRIPTION = (
     "next month in an unrelated deck.\n\n"
     "## Workflow — follow IN ORDER\n\n"
     "  1. **Confirm scope with the user.** Unless the user's last "
-    "message explicitly said this is a user-wide preference (\"always\", "
-    "\"in general\", \"for every deck\", \"my default\"), call "
+    'message explicitly said this is a user-wide preference ("always", '
+    '"in general", "for every deck", "my default"), call '
     "`AskUserQuestion` first to confirm whether to save here or to "
     "`SaveProjectMemory`. Memory writes are stateful — never assume "
     "scope.\n"
@@ -17,17 +17,17 @@ DESCRIPTION = (
     "create a sibling that contradicts it.\n"
     "  3. **Save** with the chosen slug, type, name, description, body.\n\n"
     "## When to save\n\n"
-    "  - User explicitly asks to remember a preference (\"remember "
-    "that I want X\", \"don't forget I prefer Y\").\n"
+    '  - User explicitly asks to remember a preference ("remember '
+    'that I want X", "don\'t forget I prefer Y").\n'
     "  - User corrects you and the rule should apply to all future "
-    "work (\"in general, don't do X\") → `type=\"feedback\"`.\n"
+    'work ("in general, don\'t do X") → `type="feedback"`.\n'
     "  - User confirms a non-obvious cross-project choice was right "
-    "(\"yes, that framing was perfect — keep using it\") → "
-    "`type=\"feedback\"`.\n"
+    '("yes, that framing was perfect — keep using it") → '
+    '`type="feedback"`.\n'
     "  - You learn the user's role, expertise, default brand, or "
-    "working style → `type=\"user\"`.\n"
+    'working style → `type="user"`.\n'
     "  - User references an external system that applies broadly "
-    "(Linear, Slack, dashboards) → `type=\"reference\"`.\n\n"
+    '(Linear, Slack, dashboards) → `type="reference"`.\n\n'
     "## What NOT to save here\n\n"
     "  - Facts specific to one deck (audience, deadline, this deck's "
     "key message). Those belong in `SaveProjectMemory`.\n"
@@ -35,8 +35,8 @@ DESCRIPTION = (
     "from conversation state.\n"
     "  - Transient task progress — lives in TodoWrite.\n\n"
     "## Conflict resolution\n\n"
-    "  - **User changed their mind** (\"actually I like emoji now\" "
-    "after \"no emoji\") → re-save with the SAME slug. Body captures "
+    '  - **User changed their mind** ("actually I like emoji now" '
+    'after "no emoji") → re-save with the SAME slug. Body captures '
     "the current stance only.\n"
     "  - **User refined / clarified** → re-save with the same slug, "
     "body captures the refined version.\n"

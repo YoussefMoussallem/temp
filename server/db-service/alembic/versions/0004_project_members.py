@@ -12,6 +12,7 @@ re-pointed at ``0001`` so ``alembic upgrade head`` resolves cleanly on
 both fresh clones and existing dev DBs (where alembic_version was
 manually stamped to '0004' after the consolidation).
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -33,10 +34,7 @@ def upgrade() -> None:
             PRIMARY KEY (user_id, project_id)
         )
     """)
-    op.execute(
-        "CREATE INDEX ix_project_members_project "
-        "ON project_members (project_id)"
-    )
+    op.execute("CREATE INDEX ix_project_members_project ON project_members (project_id)")
 
 
 def downgrade() -> None:

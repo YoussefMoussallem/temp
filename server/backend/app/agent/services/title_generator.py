@@ -51,11 +51,13 @@ _MAX_TITLE_CHARS = 60
 
 # Regex hits leading/trailing quote-like punctuation. Models love to
 # wrap titles in quotes ("Q4 strategy review") despite being told not to.
-_QUOTE_TRIM_RE = re.compile(r'^[\s"\u201c\u201d\u2018\u2019\'`]+|[\s"\u201c\u201d\u2018\u2019\'`]+$')
+_QUOTE_TRIM_RE = re.compile(
+    r'^[\s"\u201c\u201d\u2018\u2019\'`]+|[\s"\u201c\u201d\u2018\u2019\'`]+$'
+)
 
 # Trailing sentence-final punctuation. Models occasionally add a period
 # or exclamation point. Strip those — sidebars never punctuate titles.
-_TRAILING_PUNCT_RE = re.compile(r'[.!?,:;]+$')
+_TRAILING_PUNCT_RE = re.compile(r"[.!?,:;]+$")
 
 
 _SYSTEM_PROMPT = (

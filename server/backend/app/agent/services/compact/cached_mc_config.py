@@ -30,6 +30,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class CachedMCConfig:
     """Knobs for ``cached_microcompact``."""
+
     enabled: bool = True
     # Key cache entries by tool_use_id (the only id that's content-stable
     # across replays). False would key by content hash, defeating cache

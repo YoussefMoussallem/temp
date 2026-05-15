@@ -469,7 +469,24 @@ export function useChat(
       }
 
       const output = approved
-        ? "User approved your plan. Permission mode is now default — you can call slide-write tools. Execute the plan now: call CreateSlide exactly ONCE per slide listed in your plan markdown, in the order the plan describes. Your TodoWrite items mirror the same slides and are tracking-only — do NOT iterate them as a separate set of work."
+        ? (
+            "User approved your plan. Permission mode is now default — "
+            + "you can call slide-write tools.\n\n"
+            + "Execute the plan in ONE assistant message: emit every "
+            + "CreateSlide call in parallel, each with an explicit "
+            + "`position` field. For a fresh deck of N slides, use "
+            + "positions 0, 1, …, N-1 in plan order; for appends to an "
+            + "existing deck of length L, use L, L+1, …. The agent "
+            + "loop runs position-bearing creates concurrently — "
+            + "do NOT use `after_slide_id` here (that path is serial).\n\n"
+            + "Hard count rule: call CreateSlide exactly ONCE per slide "
+            + "listed in your plan markdown — N slides in the plan ⇒ "
+            + "exactly N CreateSlide calls total, no more. Your "
+            + "TodoWrite items mirror the same slides and are "
+            + "tracking-only; do NOT iterate them as a separate set of "
+            + "work. After the parallel batch returns, briefly confirm "
+            + "completion to the user; do not call CreateSlide again."
+          )
         : `User rejected your plan: ${rejectionReason || "no reason given"}. Stay in plan mode and revise.`;
 
       pendingResolveRef.current({

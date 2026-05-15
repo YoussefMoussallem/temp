@@ -1,0 +1,101 @@
+# Local development dependencies.
+#
+# This file is for local dev only. In Azure dev/prod the equivalents are
+# provisioned via `infra/` Bicep (PostgreSQL Flexible Server, Azure
+# Managed Redis, Azure Blob Storage), all on private endpoints with
+# Microsoft Entra ID auth — see infra/README.md.
+#
+# Bring everything up:
+#   docker compose up -d
+#
+# Connection strings (matching server/db-service/.env defaults):
+#   Postgres: postgresql://tempslide:tempslide@localhost:5432/tempslide
+#   Redis:    redis://localhost:6379
+#   Azurite:  UseDevelopmentStorage=true
+#             (the SDK shortcut. An explicit connection string with the
+#             well-known key + http://127.0.0.1:10000/devstoreaccount1
+#             endpoint signs the request differently and Azurite rejects
+#             it as AuthorizationFailure — use the shortcut.)
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: temp-slide-postgres
+    environment:
+      POSTGRES_USER: tempslide
+      POSTGRES_PASSWORD: tempslide
+      POSTGRES_DB: tempslide
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tempslide"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: temp-slide-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Azure Blob Storage emulator. Used for the `masters` container
+  # (db-service stores PPTX template bytes here). Default account name
+  # is ``devstoreaccount1``; the key is well-known and ships with the
+  # azurite image. See server/db-service/.env.example for the
+  # connection string template.
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: temp-slide-azurite
+    command:
+      - azurite-blob
+      - "--blobHost"
+      - "0.0.0.0"
+      - "--blobPort"
+      - "10000"
+      - "--location"
+      - "/data"
+      - "--skipApiVersionCheck"
+      # ``--loose`` relaxes signature/header validation. Required because
+      # the python azure-storage-blob SDK ships a newer signing scheme
+      # than the bundled Azurite recognises; without this flag, every
+      # authenticated request comes back with AuthorizationFailure even
+      # when the well-known account key is correct. Local-dev only.
+      - "--loose"
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # LibreOffice headless wrapped in FastAPI. Renders .pptx slides
+  # (including the synthetic layout-preview slides built by the
+  # backend's pptx_renderer client) to PNGs. ~1 GB image; only built
+  # on demand via ``docker compose build pptx-renderer``.
+  pptx-renderer:
+    build:
+      context: .
+      dockerfile: server/pptx-renderer/Dockerfile
+    container_name: temp-slide-pptx-renderer
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=2)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  azurite-data:

@@ -23,6 +23,7 @@ from ...Tool import (
 from ...types.hooks import CanUseToolFn
 from .prompt import ASK_USER_QUESTION_TOOL_NAME, DESCRIPTION
 
+
 class OptionSchema(BaseModel):
     label: str = Field(description="Display text for this option (1-5 words)")
     description: str = Field(default="", description="Explanation of what this option means")
@@ -74,10 +75,12 @@ class AskUserQuestionToolImpl(BaseTool[AskUserQuestionInput, AskUserQuestionOutp
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
-        qs = input.get("questions", []) if isinstance(input, dict) else getattr(input, "questions", [])
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
+        qs = (
+            input.get("questions", [])
+            if isinstance(input, dict)
+            else getattr(input, "questions", [])
+        )
         if not qs:
             return ValidationError(message="At least one question is required", errorCode=1)
         if len(qs) > 4:
@@ -85,7 +88,9 @@ class AskUserQuestionToolImpl(BaseTool[AskUserQuestionInput, AskUserQuestionOutp
         for q in qs:
             opts = q.get("options", []) if isinstance(q, dict) else getattr(q, "options", [])
             if len(opts) < 2:
-                return ValidationError(message="Each question needs at least 2 options", errorCode=1)
+                return ValidationError(
+                    message="Each question needs at least 2 options", errorCode=1
+                )
             if len(opts) > 4:
                 return ValidationError(message="Maximum 4 options per question", errorCode=1)
         return ValidationOk()

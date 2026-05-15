@@ -29,13 +29,16 @@ async def _load():
     return import_module(__name__)
 
 
-memory: Command = cast(Command, {
-    "type": "local",
-    "execution": "server",
-    "name": "memory",
-    "description": "Manage saved memories (coming soon)",
-    "aliases": [],
-    "supports_non_interactive": True,
-    "is_hidden": True,
-    "load": _load,
-})
+memory: Command = cast(
+    Command,
+    {
+        "type": "local",
+        "execution": "server",
+        "name": "memory",
+        "description": "Manage saved memories (coming soon)",
+        "aliases": [],
+        "supports_non_interactive": True,
+        "is_hidden": True,
+        "load": _load,
+    },
+)

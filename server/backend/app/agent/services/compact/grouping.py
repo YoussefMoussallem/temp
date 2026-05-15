@@ -46,6 +46,7 @@ class ToolPair:
     the result is dropped but the message wrapper has to stay (other
     blocks in the same message survive).
     """
+
     tool_use_id: str
     use_idx: int
     result_idx: int | None
@@ -100,13 +101,15 @@ def find_tool_pairs(messages: list[Any]) -> list[ToolPair]:
     pairs: list[ToolPair] = []
     for tid, (use_b, use_m) in use_positions.items():
         res = result_positions.get(tid)
-        pairs.append(ToolPair(
-            tool_use_id=tid,
-            use_idx=use_b,
-            result_idx=res[0] if res else None,
-            message_use_idx=use_m,
-            message_result_idx=res[1] if res else None,
-        ))
+        pairs.append(
+            ToolPair(
+                tool_use_id=tid,
+                use_idx=use_b,
+                result_idx=res[0] if res else None,
+                message_use_idx=use_m,
+                message_result_idx=res[1] if res else None,
+            )
+        )
     return pairs
 
 
@@ -118,6 +121,7 @@ class RepeatedResultGroup:
     occurrence in full and rewrites earlier ones to previews — that's
     why this returns the full list of indices, not just first/last.
     """
+
     tool_use_id: str
     occurrences: list[int] = field(default_factory=list)
 
@@ -154,6 +158,7 @@ class CollapseGroup:
     these groups via this helper, and rewrites them. The helper itself
     is content-only; the rewrite logic lives in ``context_collapse``.
     """
+
     message_idx: int
     block_indices: tuple[int, ...]
     tool_names: tuple[str, ...]
@@ -163,9 +168,15 @@ class CollapseGroup:
 # source's set; expand here when new read/search tools land. Lower-cased
 # match — collapse runs against runtime tool names which are
 # case-sensitive on the wire but often differ in casing across forks.
-_COLLAPSIBLE_TOOLS = frozenset({
-    "read", "glob", "grep", "ls", "list",
-})
+_COLLAPSIBLE_TOOLS = frozenset(
+    {
+        "read",
+        "glob",
+        "grep",
+        "ls",
+        "list",
+    }
+)
 
 
 def find_collapse_groups(messages: list[Any]) -> list[CollapseGroup]:
@@ -202,19 +213,23 @@ def find_collapse_groups(messages: list[Any]) -> list[CollapseGroup]:
                 run_names.append(str(block.get("name") or ""))
             else:
                 if len(run_block_idxs) >= 2:
-                    groups.append(CollapseGroup(
-                        message_idx=m_idx,
-                        block_indices=tuple(run_block_idxs),
-                        tool_names=tuple(run_names),
-                    ))
+                    groups.append(
+                        CollapseGroup(
+                            message_idx=m_idx,
+                            block_indices=tuple(run_block_idxs),
+                            tool_names=tuple(run_names),
+                        )
+                    )
                 run_block_idxs = []
                 run_names = []
         if len(run_block_idxs) >= 2:
-            groups.append(CollapseGroup(
-                message_idx=m_idx,
-                block_indices=tuple(run_block_idxs),
-                tool_names=tuple(run_names),
-            ))
+            groups.append(
+                CollapseGroup(
+                    message_idx=m_idx,
+                    block_indices=tuple(run_block_idxs),
+                    tool_names=tuple(run_names),
+                )
+            )
     return groups
 
 

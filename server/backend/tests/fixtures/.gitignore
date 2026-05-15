@@ -1,0 +1,4 @@
+# Real PPTX templates that contain corporate IP cannot be committed.
+# Drop them in tests/fixtures/private/ locally; tests that depend on
+# them skip with a clear message when missing.
+private/

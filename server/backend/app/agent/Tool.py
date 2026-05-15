@@ -14,14 +14,13 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Protocol, TypeVar
 from pydantic import BaseModel
 
 from .types.hooks import CanUseToolFn
 from .types.permissions import (
     PermissionAllowDecision,
     PermissionResult,
-    ToolPermissionContext,
 )
 from .types.tools import ToolProgressData
 
@@ -60,6 +59,7 @@ ValidationResult = ValidationOk | ValidationError
 @dataclass
 class ToolResult(Generic[OutputT]):
     """Successful tool result. Backend half — no React UI."""
+
     data: OutputT
     # Optional new messages to inject into the conversation post-tool.
     newMessages: list["Message"] | None = None
@@ -76,6 +76,7 @@ class ToolResult(Generic[OutputT]):
 @dataclass
 class ToolProgress(Generic[OutputT]):
     """A progress event emitted during tool execution."""
+
     toolUseID: str
     data: ToolProgressData
 
@@ -91,6 +92,7 @@ ToolCallProgress = Callable[[ToolProgress], None]
 @dataclass
 class ToolUseContextOptions:
     """Options bag inside ToolUseContext. Mirrors `ToolUseContext.options`."""
+
     mainLoopModel: str = ""
     searchModel: str = ""
     permissionMode: str = "default"
@@ -117,6 +119,7 @@ class ToolUseContext:
     relevant features come online (see project_agent_port_multi_agent
     for what's deferred).
     """
+
     options: ToolUseContextOptions = field(default_factory=ToolUseContextOptions)
     messages: list["Message"] = field(default_factory=list)
     # Per-tool input limits (v1: file reading + glob).
@@ -195,17 +198,11 @@ class Tool(Protocol[InputT, OutputT]):
 
     # ── Permission & validation ─────────────────────────────────────────────
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult: ...
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult: ...
 
-    async def check_permissions(
-        self, input: Any, context: ToolUseContext
-    ) -> PermissionResult: ...
+    async def check_permissions(self, input: Any, context: ToolUseContext) -> PermissionResult: ...
 
-    async def prepare_permission_matcher(
-        self, input: Any
-    ) -> Callable[[str], bool]: ...
+    async def prepare_permission_matcher(self, input: Any) -> Callable[[str], bool]: ...
 
     # ── Path helper (file-touching tools) ───────────────────────────────────
 
@@ -223,9 +220,7 @@ class Tool(Protocol[InputT, OutputT]):
 
     # ── Description & prompt ────────────────────────────────────────────────
 
-    async def description(
-        self, input: Any, options: dict[str, Any]
-    ) -> str: ...
+    async def description(self, input: Any, options: dict[str, Any]) -> str: ...
 
     async def prompt(self, options: dict[str, Any]) -> str: ...
 
@@ -233,9 +228,7 @@ class Tool(Protocol[InputT, OutputT]):
 
     # ── Result mapping (backend → API tool_result block) ────────────────────
 
-    def map_tool_result_to_block(
-        self, content: OutputT, tool_use_id: str
-    ) -> dict[str, Any]: ...
+    def map_tool_result_to_block(self, content: OutputT, tool_use_id: str) -> dict[str, Any]: ...
 
     # ── Auto-mode classifier feed ───────────────────────────────────────────
 
@@ -310,6 +303,7 @@ def _default_to_auto_classifier_input(_input: Any = None) -> str:
 @dataclass
 class Tools:
     """A collection of tools. Use this instead of bare list[Tool]."""
+
     tools: list[Tool] = field(default_factory=list)
 
     def __iter__(self):
@@ -386,19 +380,13 @@ class BaseTool(Generic[InputT, OutputT]):
     def interrupt_behavior(self) -> str:
         return "block"
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         return ValidationOk()
 
-    async def check_permissions(
-        self, input: Any, context: ToolUseContext
-    ) -> PermissionResult:
+    async def check_permissions(self, input: Any, context: ToolUseContext) -> PermissionResult:
         return await _default_check_permissions(input, context)
 
-    async def prepare_permission_matcher(
-        self, input: Any
-    ) -> Callable[[str], bool]:
+    async def prepare_permission_matcher(self, input: Any) -> Callable[[str], bool]:
         # Default: only tool-name-level matching works (returns False for any pattern).
         return lambda _pattern: False
 
@@ -426,9 +414,7 @@ class BaseTool(Generic[InputT, OutputT]):
     def user_facing_name(self, input: Any = None) -> str:
         return self.name
 
-    def map_tool_result_to_block(
-        self, content: Any, tool_use_id: str
-    ) -> dict[str, Any]:
+    def map_tool_result_to_block(self, content: Any, tool_use_id: str) -> dict[str, Any]:
         # Default: serialize content as text.
         return {
             "type": "tool_result",

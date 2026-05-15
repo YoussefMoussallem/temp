@@ -54,14 +54,14 @@ def _resolve_config_path(explicit: Path | None) -> Path | None:
 def _expand_env(value: Any) -> Any:
     """Recursively expand ${VAR} in any string value. Fails on missing vars."""
     if isinstance(value, str):
+
         def _sub(m: re.Match[str]) -> str:
             var = m.group(1)
             env_val = os.environ.get(var)
             if env_val is None:
-                raise MissingEnvVarError(
-                    f"MCP config references ${{{var}}} but env var is unset."
-                )
+                raise MissingEnvVarError(f"MCP config references ${{{var}}} but env var is unset.")
             return env_val
+
         return _ENV_VAR_RE.sub(_sub, value)
     if isinstance(value, list):
         return [_expand_env(v) for v in value]
@@ -95,8 +95,7 @@ def _parse_entry(raw: dict[str, Any]) -> ServerConfig:
             headers=dict(raw.get("headers") or {}),
         )
     raise ValueError(
-        f"MCP server '{name}' has unsupported transport: {transport!r} "
-        f"(must be 'stdio' or 'http')"
+        f"MCP server '{name}' has unsupported transport: {transport!r} (must be 'stdio' or 'http')"
     )
 
 

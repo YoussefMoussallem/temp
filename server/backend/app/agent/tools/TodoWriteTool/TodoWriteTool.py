@@ -23,7 +23,9 @@ class TodoItem(BaseModel):
 
 
 class TodoWriteInput(BaseModel):
-    todos: list[TodoItem] = Field(description="Complete list of todo items (replaces previous list)")
+    todos: list[TodoItem] = Field(
+        description="Complete list of todo items (replaces previous list)"
+    )
 
 
 class TodoWriteToolImpl(BaseTool[TodoWriteInput, str]):
@@ -41,9 +43,7 @@ class TodoWriteToolImpl(BaseTool[TodoWriteInput, str]):
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         todos = input.get("todos", []) if isinstance(input, dict) else getattr(input, "todos", [])
         if not todos:
             return ValidationError(message="todos list must not be empty", errorCode=1)

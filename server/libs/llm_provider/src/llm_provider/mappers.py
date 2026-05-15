@@ -38,40 +38,55 @@ def build_input(messages: list[Message]) -> list:
     for msg in messages:
         if msg.role == "user":
             if msg.images:
-                parts = [ResponseInputTextContentParam(
-                    type="input_text", text=msg.content or "",
-                )]
+                parts = [
+                    ResponseInputTextContentParam(
+                        type="input_text",
+                        text=msg.content or "",
+                    )
+                ]
                 for img in msg.images:
-                    parts.append(ResponseInputImageContentParam(
-                        type="input_image",
-                        image_url=f"data:{img.mime_type};base64,{img.base64}",
-                    ))
+                    parts.append(
+                        ResponseInputImageContentParam(
+                            type="input_image",
+                            image_url=f"data:{img.mime_type};base64,{img.base64}",
+                        )
+                    )
                 items.append(EasyInputMessageParam(role="user", content=parts))
             else:
-                items.append(EasyInputMessageParam(
-                    role="user", content=msg.content or "",
-                ))
+                items.append(
+                    EasyInputMessageParam(
+                        role="user",
+                        content=msg.content or "",
+                    )
+                )
 
         elif msg.role == "assistant":
             if msg.content:
-                items.append(EasyInputMessageParam(
-                    role="assistant", content=msg.content,
-                ))
+                items.append(
+                    EasyInputMessageParam(
+                        role="assistant",
+                        content=msg.content,
+                    )
+                )
             if msg.tool_calls:
                 for tc in msg.tool_calls:
-                    items.append(ResponseFunctionToolCallParam(
-                        type="function_call",
-                        call_id=tc.id,
-                        name=tc.name,
-                        arguments=tc.arguments,
-                    ))
+                    items.append(
+                        ResponseFunctionToolCallParam(
+                            type="function_call",
+                            call_id=tc.id,
+                            name=tc.name,
+                            arguments=tc.arguments,
+                        )
+                    )
 
         elif msg.role == "tool":
-            items.append(FunctionCallOutput(
-                type="function_call_output",
-                call_id=msg.tool_call_id or "",
-                output=msg.content or "",
-            ))
+            items.append(
+                FunctionCallOutput(
+                    type="function_call_output",
+                    call_id=msg.tool_call_id or "",
+                    output=msg.content or "",
+                )
+            )
 
     return items
 
@@ -93,11 +108,13 @@ def build_tools(tools: list[dict] | None) -> list:
         if tool_type != "function":
             result.append(tool)
         else:
-            result.append(FunctionToolParam(
-                type="function",
-                name=tool.get("name", ""),
-                description=tool.get("description", ""),
-                parameters=tool.get("parameters"),
-                strict=None,
-            ))
+            result.append(
+                FunctionToolParam(
+                    type="function",
+                    name=tool.get("name", ""),
+                    description=tool.get("description", ""),
+                    parameters=tool.get("parameters"),
+                    strict=None,
+                )
+            )
     return result

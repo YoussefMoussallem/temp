@@ -38,14 +38,17 @@ async def _get_prompt(args: str, _ctx: Any) -> list[dict]:
     return [{"type": "text", "text": text}]
 
 
-new_deck: Command = cast(Command, {
-    "type": "prompt",
-    "execution": "server",
-    "name": "new-deck",
-    "description": "Start a fresh slide deck",
-    "argument_hint": "[topic]",
-    "source": "builtin",
-    "progress_message": "starting a new deck",
-    "content_length": 300,
-    "get_prompt_for_command": _get_prompt,
-})
+new_deck: Command = cast(
+    Command,
+    {
+        "type": "prompt",
+        "execution": "server",
+        "name": "new-deck",
+        "description": "Start a fresh slide deck",
+        "argument_hint": "[topic]",
+        "source": "builtin",
+        "progress_message": "starting a new deck",
+        "content_length": 300,
+        "get_prompt_for_command": _get_prompt,
+    },
+)

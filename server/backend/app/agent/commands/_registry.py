@@ -40,12 +40,33 @@ def _built_in_commands() -> list["Command"]:
     (Phase 2.8.2.x — see ``loader.load_all_commands``).
     """
     from . import (
-        help, export, theme, skills, new_deck,
-        plan, cost, context, memory, remember, compact, clear,
+        help,
+        export,
+        theme,
+        skills,
+        new_deck,
+        plan,
+        cost,
+        context,
+        memory,
+        remember,
+        compact,
+        clear,
     )
+
     return [
-        help, export, theme, skills, new_deck,
-        plan, cost, context, memory, remember, compact, clear,
+        help,
+        export,
+        theme,
+        skills,
+        new_deck,
+        plan,
+        cost,
+        context,
+        memory,
+        remember,
+        compact,
+        clear,
     ]
 
 
@@ -107,7 +128,5 @@ def get_command(name: str, commands: list["Command"]) -> "Command":
     cmd = find_command(name, commands)
     if cmd is None:
         names = sorted(get_command_name(c) for c in commands)
-        raise ReferenceError(
-            f"Command {name!r} not found. Available: {', '.join(names)}"
-        )
+        raise ReferenceError(f"Command {name!r} not found. Available: {', '.join(names)}")
     return cmd

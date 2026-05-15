@@ -1,0 +1,33 @@
+name: Docker
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pptx-renderer:
+    name: Build pptx-renderer image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/pptx-renderer/Dockerfile
+          push: false
+          tags: tempslide/pptx-renderer:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

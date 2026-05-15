@@ -62,14 +62,22 @@ class SaveUserMemoryToolImpl(BaseTool[SaveUserMemoryInput, str]):
         return False
 
     def is_concurrency_safe(self, input: Any = None) -> bool:
-        # Two parallel saves to the same slug would race on the upsert.
-        return False
+        # Different slugs → independent UPSERTs at the DB level. The
+        # only race is two parallel saves to the SAME slug — but Save's
+        # documented semantic is "overwrite the existing entry at this
+        # slug," so last-write-wins is the right outcome. The model
+        # shouldn't emit two saves to the same slug in one batch, and
+        # if it does, we'd rather see the parallelism speedup than
+        # serialise everything for a defensive edge case.
+        return True
 
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
     async def validate_input(
-        self, input: Any, context: ToolUseContext,
+        self,
+        input: Any,
+        context: ToolUseContext,
     ) -> ValidationResult:
         slug = input.get("slug") if isinstance(input, dict) else getattr(input, "slug", None)
         type_ = input.get("type") if isinstance(input, dict) else getattr(input, "type", None)
@@ -85,10 +93,7 @@ class SaveUserMemoryToolImpl(BaseTool[SaveUserMemoryInput, str]):
             )
         if type_ not in _USER_TYPES:
             return ValidationError(
-                message=(
-                    f"`type` must be one of {sorted(_USER_TYPES)}. "
-                    f"Got: {type_!r}"
-                ),
+                message=(f"`type` must be one of {sorted(_USER_TYPES)}. Got: {type_!r}"),
                 errorCode=2,
             )
         if not context.user_id:
@@ -126,10 +131,7 @@ class SaveUserMemoryToolImpl(BaseTool[SaveUserMemoryInput, str]):
         )
 
         return ToolResult(
-            data=(
-                f"Saved [user:{saved['slug']}] "
-                f"(type={saved['type']}, name={saved['name']!r})."
-            ),
+            data=(f"Saved [user:{saved['slug']}] (type={saved['type']}, name={saved['name']!r})."),
         )
 
 

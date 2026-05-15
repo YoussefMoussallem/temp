@@ -68,9 +68,7 @@ class MCPToolImpl(BaseTool[MCPInput, MCPOutput]):
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         parsed = input if isinstance(input, dict) else {}
         if isinstance(input, MCPInput):
             parsed = input.model_dump()
@@ -91,7 +89,9 @@ class MCPToolImpl(BaseTool[MCPInput, MCPOutput]):
         on_progress: Any | None = None,
     ) -> ToolResult[MCPOutput]:
         parsed: MCPInput = (
-            args if isinstance(args, MCPInput) else MCPInput(**(args if isinstance(args, dict) else {}))
+            args
+            if isinstance(args, MCPInput)
+            else MCPInput(**(args if isinstance(args, dict) else {}))
         )
         manager = maybe_get_manager()
         if manager is None:
