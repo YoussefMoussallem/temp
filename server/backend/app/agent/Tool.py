@@ -103,9 +103,16 @@ class ToolUseContextOptions:
     customSystemPrompt: str | None = None
     appendSystemPrompt: str | None = None
     maxBudgetUsd: float | None = None
+    # Phase 6.B.1.7 — agent registry for the current /turn. Populated by
+    # ``QueryEngine.run`` from ``services.agents.merge_agent_definitions``;
+    # AgentTool reads ``activeAgents`` to resolve ``subagent_type`` and
+    # surface the listing in its tool-description prompt. Typed ``Any`` to
+    # avoid pulling the AgentDefinitionsResult TypedDict into Tool.py's
+    # import graph.
+    agentDefinitions: Any | None = None
     # Subset for v1; expanded as features land:
     # commands, tools, thinkingConfig, mcpClients, mcpResources,
-    # agentDefinitions, querySource, refreshTools — Phase 1.2+.
+    # querySource, refreshTools — Phase 1.2+.
 
 
 @dataclass
@@ -138,11 +145,24 @@ class ToolUseContext:
     project_id: str | None = None
     conversation_id: str | None = None
     user_id: str | None = None
-    # Deferred fields (Q6 multi-agent, Q9 hooks, plan mode, subagents):
-    # agentId, agentType, queryTracking, contentReplacementState,
-    # renderedSystemPrompt, requireCanUseTool, requestPrompt,
-    # localDenialTracking, abortController, getAppState/setAppState,
-    # readFileState, etc. — added in Phase 1.2+ as needed.
+    # ── Subagent dispatch (Phase 6.B.1.7) ───────────────────────────────
+    # Set by ``runAgent._build_subagent_context`` so tools that need to
+    # detect "am I running inside a subagent?" can branch (e.g.
+    # EnterPlanMode rejects subagent invocation). Parent-loop turns leave
+    # both as None.
+    agentId: str | None = None
+    agentType: str | None = None
+    # ClientState back-reference. Set by ``QueryEngine.run`` for the
+    # parent loop and inherited by subagent contexts via ``runAgent``.
+    # AgentTool reads ``client_state.pending_subagents`` to detect
+    # resume and ``consumed_subagent_tool_use_ids`` to migrate stale
+    # pending IDs when an agent type vanishes mid-conversation. Typed
+    # ``Any`` to avoid a circular import with ``QueryEngine``.
+    client_state: Any | None = None
+    # Deferred fields (Q9 hooks, plan mode, etc.):
+    # queryTracking, contentReplacementState, renderedSystemPrompt,
+    # requireCanUseTool, requestPrompt, localDenialTracking,
+    # abortController, readFileState — added as needed.
 
 
 # ============================================================================

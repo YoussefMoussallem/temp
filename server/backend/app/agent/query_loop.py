@@ -53,6 +53,7 @@ from .services.api.with_retry import MaxRetriesExceeded, with_retry
 from .services.compact.compact_warning_hook import compact_warning_hook
 from .services.compact.reactive_compact import reactive_compact
 from .services.compact.snip_compact import snip_compact_if_needed
+from .tools.AgentTool.exceptions import SubagentAwaitingFrontendTools
 from .types.hooks import CanUseToolFn
 from .utils.command_lifecycle import notify_command_lifecycle
 from .utils.context_collapse import apply_collapses_if_needed
@@ -157,6 +158,55 @@ def _extract_tool_uses(assistant_msg: "AssistantMessage") -> list[dict[str, Any]
     ]
 
 
+def _find_orphaned_tool_uses(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return tool_use blocks in the tail assistant message that don't have
+    a matching tool_result in the message stream that follows.
+
+    Phase 6.B.1.7: when the prior /turn paused a subagent on
+    awaiting_frontend_tools, the parent's Agent tool_use is left without a
+    matching tool_result (the subagent hasn't completed). The router pre-
+    loop has already routed the subagent's own tool_results into its
+    frame, so the parent's user message is empty/dropped — leaving the
+    Agent tool_use orphan in the tail assistant message. We resolve those
+    here BEFORE the LLM is called, so Anthropic's API isn't asked to
+    consume a history with mismatched tool_use/tool_result pairs.
+    """
+    last_asst_idx: int | None = None
+    for i in range(len(messages) - 1, -1, -1):
+        m = messages[i]
+        if isinstance(m, dict) and m.get("type") == "assistant":
+            last_asst_idx = i
+            break
+    if last_asst_idx is None:
+        return []
+    asst = messages[last_asst_idx]
+    inner = asst.get("message", {}) if isinstance(asst, dict) else {}
+    content = inner.get("content", []) if isinstance(inner, dict) else []
+    if not isinstance(content, list):
+        return []
+    tool_uses = [
+        b for b in content
+        if isinstance(b, dict) and b.get("type") == "tool_use"
+    ]
+    if not tool_uses:
+        return []
+    resolved: set[str] = set()
+    for m in messages[last_asst_idx + 1:]:
+        if not isinstance(m, dict) or m.get("type") != "user":
+            continue
+        c = (m.get("message", {}) or {}).get("content", [])
+        if not isinstance(c, list):
+            continue
+        for block in c:
+            if isinstance(block, dict) and block.get("type") == "tool_result":
+                rid = block.get("tool_use_id")
+                if rid:
+                    resolved.add(rid)
+    return [tu for tu in tool_uses if tu.get("id") not in resolved]
+
+
 def _make_tool_result_message(
     tool_use_id: str,
     output: Any,
@@ -229,6 +279,12 @@ async def _execute_single_tool(
     # WebSearch spend doing real work — that's where the spinner needs
     # to keep spinning.
     is_error_outcome = False
+    # Phase 6.B.1.7: when an AgentTool call pauses (subagent emitted
+    # frontend tool_uses), the parent's Agent tool_use is still in flight
+    # — its tool_result lands next /turn after the subagent completes.
+    # Suppress tool_call_complete in that case so chat-ui's spinner keeps
+    # rendering across the resume boundary.
+    subagent_paused = False
     try:
         tool = find_tool_by_name(tools, tool_name)
         if tool is None:
@@ -299,6 +355,49 @@ async def _execute_single_tool(
                 "type": "user",
                 "message": {"role": "user", "content": [block]},
             }
+        except SubagentAwaitingFrontendTools as pause:
+            # Phase 6.B.1.7: subagent's inner query() yielded
+            # awaiting_frontend_tools while running inside this AgentTool
+            # call. The subagent's pending frontend tool_uses need to be
+            # lifted into the parent's tool_request envelope, and the
+            # subagent state needs to be stashed onto ClientState for
+            # resume on the next /turn.
+            #
+            # Stamp the parent's tool_use_id onto the frame so AgentTool's
+            # resume detection can match `parentToolUseId == tool_use_id`
+            # next turn. AgentTool.call() can't set this itself because
+            # it doesn't have access to its own tool_use_id at construction.
+            frame = pause.frame
+            frame["parentToolUseId"] = tool_use_id
+
+            cs = getattr(ctx, "client_state", None)
+            if cs is not None:
+                pending = getattr(cs, "pending_subagents", None)
+                if isinstance(pending, list):
+                    pending.append(frame)
+                consumed = getattr(cs, "consumed_subagent_tool_use_ids", None)
+                if isinstance(consumed, list):
+                    seen = set(consumed)
+                    for tu in pause.tool_uses:
+                        tid = tu.get("id") or ""
+                        if tid and tid not in seen:
+                            consumed.append(tid)
+                            seen.add(tid)
+
+            subagent_paused = True
+            # Surface the subagent's pending dispatches via the special
+            # event the outer loop handler picks up to lift them into the
+            # turn-end tool_request envelope.
+            yield {
+                "type": "subagent_pause",
+                "parent_tool_use_id": tool_use_id,
+                "agent_id": frame.get("agentId", ""),
+                "agent_type": frame.get("agentType", ""),
+                "tool_uses": list(pause.tool_uses),
+            }
+            # No tool_result message yielded — the subagent hasn't completed,
+            # so the parent's Agent tool_use stays in flight.
+            return
         except Exception as e:  # noqa: BLE001
             is_error_outcome = True
             log.warning("tool %s (%s) raised: %s", tool_name, tool_use_id, e, exc_info=True)
@@ -306,12 +405,13 @@ async def _execute_single_tool(
                 tool_use_id, f"Tool execution failed: {e}", is_error=True
             )
     finally:
-        yield {
-            "type": "tool_call_complete",
-            "call_id": tool_use_id,
-            "name": tool_name,
-            "success": not is_error_outcome,
-        }
+        if not subagent_paused:
+            yield {
+                "type": "tool_call_complete",
+                "call_id": tool_use_id,
+                "name": tool_name,
+                "success": not is_error_outcome,
+            }
 
 
 async def _run_parallel_chunk(
@@ -404,6 +504,71 @@ async def _query_body(
         if params.maxTurns is not None and turn_count > params.maxTurns:
             yield Terminal(reason="max_turns")
             return
+
+        # ── Phase 6.B.1.7: orphan tool_use resumption ────────────────────────
+        # The tail assistant message may carry tool_uses with no matching
+        # tool_result in the trailing user messages — happens when the
+        # prior /turn paused a subagent (the parent's Agent tool_use is
+        # orphan; the subagent's own tool_results were stripped by the
+        # router pre-loop and routed into the pending frame). Execute
+        # orphan backend tools NOW, before the LLM is called, so the API
+        # isn't asked to consume a history with mismatched pairs.
+        orphans = _find_orphaned_tool_uses(messages)
+        if orphans:
+            backend_orphans: list[dict[str, Any]] = []
+            for tu in orphans:
+                otool = find_tool_by_name(params.tools, tu.get("name", ""))
+                if otool is not None and not _is_interactive(otool):
+                    backend_orphans.append(tu)
+
+            if backend_orphans:
+                orphan_tool_results: list["UserMessage"] = []
+                orphan_subagent_dispatches: list[dict[str, Any]] = []
+                for tu in backend_orphans:
+                    async for ev in _execute_single_tool(
+                        tu,
+                        params.tools,
+                        tool_use_context,
+                        params.canUseTool,
+                        {},
+                    ):
+                        yield ev
+                        if isinstance(ev, dict) and ev.get("type") == "user":
+                            orphan_tool_results.append(ev)  # type: ignore[arg-type]
+                        if isinstance(ev, dict) and ev.get("type") == "subagent_pause":
+                            for stu in ev.get("tool_uses") or []:
+                                if isinstance(stu, dict):
+                                    orphan_subagent_dispatches.append(stu)
+
+                state.messages = state.messages + orphan_tool_results
+
+                if orphan_subagent_dispatches:
+                    # Subagent paused AGAIN during resume. Emit tool_request
+                    # so chat-ui executes the new dispatches; next /turn
+                    # comes back through this same orphan-resume path.
+                    parallel_calls = [
+                        {
+                            "tool_use_id": stu.get("id", ""),
+                            "tool_name": stu.get("name", ""),
+                            "tool_input": stu.get("input", {}),
+                        }
+                        for stu in orphan_subagent_dispatches
+                    ]
+                    yield {
+                        "type": "tool_request",
+                        "parallel_calls": parallel_calls,
+                        "sequential_calls": [],
+                        "prior_tool_results": [],
+                    }
+                    yield Terminal(reason="tool_request")
+                    return
+
+                # All orphans resolved this iteration. Loop back to top —
+                # next iteration will preprocess + call LLM normally with
+                # the parent's Agent tool_result now paired in messages.
+                state.turnCount += 1
+                state.transition = Continue(reason="tool_cycle")
+                continue
 
         # ── Phase 3 — context preprocessing pipeline ────────────────────────
         # Four stages in source's order (src/query.ts:379→454). ORDER MATTERS:
@@ -599,6 +764,19 @@ async def _query_body(
         tool_results: list["UserMessage"] = []
         parent = assistant_messages[-1] if assistant_messages else {}
 
+        # Phase 6.B.1.7: when an AgentTool dispatch pauses on
+        # awaiting_frontend_tools, _execute_single_tool yields a
+        # `subagent_pause` event carrying the lifted tool_uses. We collect
+        # them across the iteration and ship them via tool_request at
+        # turn end — same wire path the parent's own interactive tools use.
+        subagent_dispatches: list[dict[str, Any]] = []
+
+        def _collect_subagent_dispatches(ev: Any) -> None:
+            if isinstance(ev, dict) and ev.get("type") == "subagent_pause":
+                for tu in ev.get("tool_uses") or []:
+                    if isinstance(tu, dict):
+                        subagent_dispatches.append(tu)
+
         # Scan blocks in order; group consecutive safe ones into parallel
         # chunks; unsafe ones run solo. Stop at the first interactive tool
         # and hand off to the frontend batched tool_request flow.
@@ -639,6 +817,7 @@ async def _query_body(
                         yield ev
                         if isinstance(ev, dict) and ev.get("type") == "user":
                             tool_results.append(ev)  # type: ignore[arg-type]
+                        _collect_subagent_dispatches(ev)
                 else:
                     # Parallel chunk: funnel events through a queue; bucket
                     # tool_result UserMessages per-tool to preserve order.
@@ -653,6 +832,7 @@ async def _query_body(
                         yield ev
                         if isinstance(ev, dict) and ev.get("type") == "user":
                             buckets[idx].append(ev)  # type: ignore[arg-type]
+                        _collect_subagent_dispatches(ev)
                     for b in buckets:
                         tool_results.extend(b)
                 i = j
@@ -669,6 +849,7 @@ async def _query_body(
                 yield ev
                 if isinstance(ev, dict) and ev.get("type") == "user":
                     tool_results.append(ev)  # type: ignore[arg-type]
+                _collect_subagent_dispatches(ev)
             i += 1
 
         # ── Interactive handoff: batched tool_request envelope ──────────────
@@ -678,25 +859,45 @@ async def _query_body(
         # first interactive are dropped (same behavior as the pre-Phase-B
         # loop) — the model can re-emit them next turn with the interactive
         # answers as prior_tool_results.
-        if first_interactive_idx is not None:
+        #
+        # Phase 6.B.1.7: subagent dispatches piggyback on this same path —
+        # if any subagent paused on awaiting_frontend_tools, we always exit
+        # via tool_request, even if the parent's own assistant message
+        # had no interactive tool_uses. The subagent's pending tool_uses
+        # ride in `parallel_calls` (the subagent itself is concurrency_safe).
+        if first_interactive_idx is not None or subagent_dispatches:
             parallel_calls: list[dict[str, Any]] = []
             sequential_calls: list[dict[str, Any]] = []
             interactive_calls: list[tuple[str, str]] = []
-            for j in range(first_interactive_idx, len(all_tool_uses)):
-                tu = all_tool_uses[j]
-                tool = find_tool_by_name(params.tools, tu.get("name", ""))
-                if not _is_interactive(tool):
-                    continue
-                call = {
-                    "tool_use_id": tu.get("id", ""),
-                    "tool_name": tu.get("name", ""),
-                    "tool_input": tu.get("input", {}),
-                }
-                interactive_calls.append((tu.get("id", ""), tu.get("name", "")))
-                if _is_safe(tool, tu.get("input", {})):
-                    parallel_calls.append(call)
-                else:
-                    sequential_calls.append(call)
+            if first_interactive_idx is not None:
+                for j in range(first_interactive_idx, len(all_tool_uses)):
+                    tu = all_tool_uses[j]
+                    tool = find_tool_by_name(params.tools, tu.get("name", ""))
+                    if not _is_interactive(tool):
+                        continue
+                    call = {
+                        "tool_use_id": tu.get("id", ""),
+                        "tool_name": tu.get("name", ""),
+                        "tool_input": tu.get("input", {}),
+                    }
+                    interactive_calls.append((tu.get("id", ""), tu.get("name", "")))
+                    if _is_safe(tool, tu.get("input", {})):
+                        parallel_calls.append(call)
+                    else:
+                        sequential_calls.append(call)
+
+            # Phase 6.B.1.7: append lifted subagent tool_uses to
+            # parallel_calls. Subagent dispatches don't carry an
+            # `interactive_calls` entry because the subagent isn't waiting
+            # on user input — the frontend just needs to execute the tool
+            # and ship results back next /turn, where AgentTool's resume
+            # path picks them up.
+            for sub_tu in subagent_dispatches:
+                parallel_calls.append({
+                    "tool_use_id": sub_tu.get("id", ""),
+                    "tool_name": sub_tu.get("name", ""),
+                    "tool_input": sub_tu.get("input", {}),
+                })
 
             prior_results = []
             for tr in tool_results:

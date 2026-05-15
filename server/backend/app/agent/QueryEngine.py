@@ -28,6 +28,7 @@ from .prompts import build_system_prompt_string, get_system_prompt
 from .query_loop import QueryParams, query
 from .query.deps import QueryDeps
 from .query.transitions import Terminal
+from .services.agents import merge_agent_definitions
 from .Tool import ToolUseContext, ToolUseContextOptions, Tools
 from .types.hooks import CanUseToolFn
 
@@ -171,6 +172,18 @@ class ClientState:
     max_output_recovery_count: int = 0
     # Plan mode: "default" or "plan".
     permission_mode: str = "default"
+    # ── Subagent dispatch (Phase 6.B.1.7) ───────────────────────────────
+    # Subagent loops can span /turn boundaries when the subagent emits
+    # frontend-executed tool_uses. The pause frame lives here keyed by
+    # ``parentToolUseId``; on the next /turn the router pre-loop hydrates
+    # the matching frame with delivered tool_results and resume drives
+    # ``query()`` onward. ``consumed_subagent_tool_use_ids`` is the
+    # all-time ledger of frontend tool_use_ids ever routed into a
+    # subagent frame — the router strips matching tool_results from the
+    # parent's history on every turn so they never reach the LLM
+    # alongside the subagent's own context.
+    pending_subagents: list[dict[str, Any]] = field(default_factory=list)
+    consumed_subagent_tool_use_ids: list[str] = field(default_factory=list)
 
 
 # ============================================================================
@@ -218,8 +231,19 @@ class QueryEngine:
             authorization=authorization,
             project_id=project_id,
             user_id=user_id,
+            # Phase 6.B.1.7: AgentTool reads pending_subagents off this
+            # back-reference to detect resume; both pending_subagents and
+            # consumed_subagent_tool_use_ids are mutated in-place by the
+            # subagent dispatch path. The state_update event at end-of-turn
+            # serializes the (possibly mutated) ClientState back to chat-ui.
+            client_state=self.client_state,
         )
         tool_use_context.options.permissionMode = self.client_state.permission_mode
+        # Phase 6.B.1.7: per-turn agent registry. Edwin v1 only ships
+        # built-in agents — no custom .md loader — so the merge degenerates
+        # to "return built-ins as activeAgents". Re-built per turn (not
+        # cached) keeps the backend stateless across replicas.
+        tool_use_context.options.agentDefinitions = merge_agent_definitions()
 
         params = QueryParams(
             messages=messages,

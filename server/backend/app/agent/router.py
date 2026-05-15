@@ -125,6 +125,112 @@ async def _allow_all(_name: str, _input: dict) -> PermissionAllowDecision:
     return PermissionAllowDecision(behavior="allow")
 
 
+def _route_subagent_tool_results(
+    messages: list[dict],
+    pending_subagents: list[dict],
+    consumed_ids: list[str],
+) -> None:
+    """Phase 6.B.1.7. Strip tool_result blocks belonging to paused
+    subagents from the parent's user messages and re-route them into the
+    matching frame's ``accumulatedMessages``.
+
+    Why: Anthropic's API rejects tool_results whose tool_use_id isn't in
+    the immediately preceding assistant message. Subagent tool_uses live
+    in the subagent's OWN accumulatedMessages, not the parent's stream;
+    leaving them in the parent's user message would poison the API call.
+
+    Two ID populations get stripped here:
+      1. **Active**: ids in ``pending_subagents[*].pendingToolUseIds`` —
+         the immediate dispatch's results (route into the matching
+         frame's accumulatedMessages).
+      2. **Consumed**: ids in ``consumed_ids`` (ClientState's all-time
+         subagent-owned tool_use_id ledger). Chat-ui's persisted history
+         keeps subagent tool_results forever; without stripping prior
+         turns' subagent IDs on every turn the parent's LLM call
+         eventually sees stale tool_result blocks with no matching
+         tool_use → 400. We don't re-route consumed ids (the matching
+         frame may already be gone); we just drop them.
+
+    In-place mutation of ``messages`` content arrays AND ``consumed_ids``
+    (newly-routed ids get appended). Empty-after-extract user messages
+    are removed entirely so we don't ship a content-less user message
+    to the LLM.
+    """
+    id_to_frame: dict[str, dict] = {}
+    for frame in pending_subagents or []:
+        if not isinstance(frame, dict):
+            continue
+        for tu_id in frame.get("pendingToolUseIds") or []:
+            if isinstance(tu_id, str) and tu_id:
+                if tu_id in id_to_frame and id_to_frame[tu_id] is not frame:
+                    log.warning(
+                        "subagent_frame_id_collision",
+                        extra={
+                            "tu_id": tu_id,
+                            "keeping_agentId": id_to_frame[tu_id].get("agentId"),
+                            "rejected_agentId": frame.get("agentId"),
+                        },
+                    )
+                    continue
+                id_to_frame[tu_id] = frame
+
+    consumed_set = set(consumed_ids or [])
+
+    if not id_to_frame and not consumed_set:
+        return
+
+    indices_to_drop: list[int] = []
+    for idx in range(len(messages) - 1, -1, -1):
+        msg = messages[idx]
+        if not isinstance(msg, dict) or msg.get("type") != "user":
+            continue
+        inner = msg.get("message")
+        if not isinstance(inner, dict):
+            continue
+        content = inner.get("content")
+        if not isinstance(content, list):
+            continue
+
+        keep_blocks: list[Any] = []
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_result":
+                keep_blocks.append(block)
+                continue
+            tu_id = block.get("tool_use_id")
+            if tu_id in id_to_frame:
+                # Active route: append to frame's accumulatedMessages as a
+                # standalone user message so the subagent's history reads:
+                # ... assistant(tool_use) → user(tool_result).
+                frame = id_to_frame[tu_id]
+                acc = frame.setdefault("accumulatedMessages", [])
+                acc.append({
+                    "type": "user",
+                    "message": {"role": "user", "content": [block]},
+                })
+                # Move from pendingToolUseIds → consumed_ids ledger so
+                # future /turns strip without re-routing.
+                pending = frame.get("pendingToolUseIds") or []
+                frame["pendingToolUseIds"] = [p for p in pending if p != tu_id]
+                if tu_id and tu_id not in consumed_set:
+                    consumed_ids.append(tu_id)
+                    consumed_set.add(tu_id)
+                continue
+            if tu_id in consumed_set:
+                # Stale subagent result from a prior turn that chat-ui
+                # re-sent. Already in some frame's accumulatedMessages
+                # (or completed long ago). Drop without re-routing.
+                continue
+            keep_blocks.append(block)
+
+        if not keep_blocks:
+            indices_to_drop.append(idx)
+        else:
+            inner["content"] = keep_blocks
+
+    for idx in indices_to_drop:
+        messages.pop(idx)
+
+
 def _wrap(role: str, content: Any) -> dict:
     """Wrap a {role, content} pair in the loop's message dict format."""
     return {"type": role, "message": {"role": role, "content": content}}
@@ -542,6 +648,24 @@ async def _stream_turn(
             )
         except Exception:
             cs = ClientState()
+
+        # Phase 6.B.1.7: route subagent tool_results into their pending
+        # frames before the LLM sees the history.
+        #   - Active dispatches: ids in pending_subagents[*].pendingToolUseIds
+        #     (route into the matching frame's accumulatedMessages so
+        #     AgentTool's resume path feeds them into the subagent loop).
+        #   - Consumed-ledger ids: stale subagent tool_results that chat-ui
+        #     persisted on prior turns and keeps re-sending. Drop without
+        #     re-routing; the frame they belonged to may already be gone.
+        # Both populations MUST be stripped from the parent's stream
+        # before the LLM sees the history — Anthropic rejects tool_results
+        # whose tool_use_id isn't in the immediately preceding assistant
+        # message.
+        _route_subagent_tool_results(
+            messages,
+            cs.pending_subagents,
+            cs.consumed_subagent_tool_use_ids,
+        )
 
         base_tools = get_all_base_tools()
         if not body.web_search:

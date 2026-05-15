@@ -8,6 +8,7 @@ NewType doesn't enforce at runtime but provides static type-checker safety.
 from __future__ import annotations
 
 import re
+import secrets
 from typing import NewType
 
 # A session ID uniquely identifies a session.
@@ -39,3 +40,13 @@ def to_agent_id(s: str) -> AgentId | None:
     Returns None if the string doesn't match (e.g. teammate names, team-addressing).
     """
     return AgentId(s) if _AGENT_ID_PATTERN.match(s) else None
+
+
+def create_agent_id(label: str | None = None) -> AgentId:
+    """Source ``utils/uuid.ts:24-27 createAgentId``.
+
+    ``a`` prefix + optional ``<label>-`` + 16 hex chars (8 random bytes hex-
+    encoded). The pattern matches ``_AGENT_ID_PATTERN`` above.
+    """
+    suffix = secrets.token_hex(8)
+    return AgentId(f"a{label}-{suffix}" if label else f"a{suffix}")

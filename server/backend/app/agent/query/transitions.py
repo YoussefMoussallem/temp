@@ -30,6 +30,15 @@ TerminalReason = Literal[
     "image_error",  # Image size/type error
     "stop_hook_prevented",  # Hook injects preventContinuation:true
     "max_turns",  # maxTurns guard exceeded
+    # Edwin-specific (Phase 6.B.1.7): subagent's inner query() yielded
+    # a tool_request for frontend-executed tools. The subagent loop
+    # cannot complete this /turn — its results round-trip via chat-ui
+    # next /turn. AgentTool.call captures the pause frame onto
+    # ClientState.pending_subagents and re-raises
+    # SubagentAwaitingFrontendTools so query_loop._execute_single_tool
+    # can lift the dispatch into the parent's tool_request envelope.
+    "awaiting_frontend_tools",
+    "tool_request",  # Interactive tool batched off to frontend
 ]
 
 

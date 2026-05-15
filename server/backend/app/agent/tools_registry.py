@@ -9,6 +9,7 @@ from app_logger import get_logger
 from .Tool import Tools
 from .services.mcp.connection_manager import maybe_get_manager
 from .services.mcp.tool_bridge import build_tools as build_mcp_tools
+from .tools.AgentTool.AgentTool import AgentTool
 from .tools.AskUserQuestionTool import AskUserQuestionTool
 from .tools.CreateSlideTool import CreateSlideTool
 from .tools.DeleteMemoryTool import DeleteMemoryTool
@@ -46,6 +47,7 @@ def get_all_base_tools() -> Tools:
     are reflected without cache invalidation.
     """
     native = [
+        AgentTool,
         AskUserQuestionTool,
         CreateSlideTool,
         DeleteMemoryTool,

@@ -65,6 +65,7 @@ export default function MessageBlocks({ blocks, streaming = false, multipleSearc
               name={b.name}
               active={!!b.active}
               progress={b.progress}
+              subagentActivity={b.subagentActivity}
             />
           );
         }

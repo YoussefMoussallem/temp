@@ -152,6 +152,39 @@ function updateTool(blocks, id, patch) {
   return mutated ? next : blocks;
 }
 
+// Subagent activity dedupe key: a stable identity per progress emission.
+// Each ``agent_progress`` event carries one subagent message; we identify
+// it by the concatenated ids of its tool_use / tool_result content blocks.
+// This survives the resume-replay pattern where the AgentTool re-fires
+// progress for every accumulated message on each resume — duplicates get
+// filtered out instead of stacking.
+function _agentProgressKey(progress) {
+  const content = progress?.message?.message?.content || [];
+  const ids = [];
+  for (const b of content) {
+    if (!b || typeof b !== "object") continue;
+    if (b.type === "tool_use" && b.id) ids.push(`tu:${b.id}`);
+    else if (b.type === "tool_result" && b.tool_use_id) ids.push(`tr:${b.tool_use_id}`);
+  }
+  return ids.length ? ids.join("|") : null;
+}
+
+function appendSubagentActivity(blocks, id, progress) {
+  let mutated = false;
+  const newKey = _agentProgressKey(progress);
+  const next = blocks.map((b) => {
+    if (b.type !== "tool" || b.id !== id) return b;
+    const existing = b.subagentActivity || [];
+    if (newKey) {
+      const seen = new Set(existing.map(_agentProgressKey).filter(Boolean));
+      if (seen.has(newKey)) return b;
+    }
+    mutated = true;
+    return { ...b, subagentActivity: [...existing, progress] };
+  });
+  return mutated ? next : blocks;
+}
+
 function sealActiveTools(blocks) {
   let mutated = false;
   const next = blocks.map((b) => {
@@ -445,6 +478,13 @@ export function chatReducer(state, action) {
 
     case A.TOOL_PROGRESS: {
       const { id, progress } = action.payload || {};
+      // Subagent activity rides on the same tool_progress wire as
+      // generic tool progress. The payload's ``type`` field
+      // discriminates: ``agent_progress`` events APPEND to the parent
+      // Agent block's subagentActivity list (deduped by content); other
+      // progress events overwrite the scalar ``progress`` field as
+      // before.
+      const isAgentProgress = progress && progress.type === "agent_progress";
       return {
         ...state,
         stream: {
@@ -452,7 +492,9 @@ export function chatReducer(state, action) {
           toolCalls: state.stream.toolCalls.map((tc) =>
             tc.id === id ? { ...tc, progress } : tc,
           ),
-          blocks: updateTool(state.stream.blocks, id, { progress }),
+          blocks: isAgentProgress
+            ? appendSubagentActivity(state.stream.blocks, id, progress)
+            : updateTool(state.stream.blocks, id, { progress }),
         },
       };
     }

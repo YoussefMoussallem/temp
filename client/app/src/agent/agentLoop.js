@@ -299,6 +299,33 @@ async function runLeg({
       }
     }
   };
+  // Subagent activity (Phase 6.B.1.7): append the latest agent_progress
+  // payload to the local Agent block's subagentActivity list, deduped by
+  // tool_use / tool_result content-block ids so resume-replay doesn't
+  // stack duplicates.
+  const _agentProgressKeyLocal = (progress) => {
+    const content = progress?.message?.message?.content || [];
+    const ids = [];
+    for (const b of content) {
+      if (!b || typeof b !== "object") continue;
+      if (b.type === "tool_use" && b.id) ids.push(`tu:${b.id}`);
+      else if (b.type === "tool_result" && b.tool_use_id) ids.push(`tr:${b.tool_use_id}`);
+    }
+    return ids.length ? ids.join("|") : null;
+  };
+  const appendLocalSubagentActivity = (id, progress) => {
+    for (const b of localBlocks) {
+      if (b.type !== "tool" || b.id !== id) continue;
+      const existing = b.subagentActivity || [];
+      const newKey = _agentProgressKeyLocal(progress);
+      if (newKey) {
+        const seen = new Set(existing.map(_agentProgressKeyLocal).filter(Boolean));
+        if (seen.has(newKey)) return;
+      }
+      b.subagentActivity = [...existing, progress];
+      return;
+    }
+  };
 
   const callbacks = {
     onThinkingDelta: (text) => {
@@ -369,7 +396,16 @@ async function runLeg({
       });
     },
     onToolProgress: (toolUseId, progress) => {
-      updateLocalTool(toolUseId, { progress });
+      // Subagent activity rides on the same tool_progress wire — append
+      // to the parent Agent block's subagentActivity list instead of
+      // overwriting the scalar progress field. The reducer has matching
+      // logic; both surfaces stay in lockstep so the optimistic local
+      // view matches the dispatched store after a flush.
+      if (progress && progress.type === "agent_progress") {
+        appendLocalSubagentActivity(toolUseId, progress);
+      } else {
+        updateLocalTool(toolUseId, { progress });
+      }
       dispatch({
         type: A.TOOL_PROGRESS,
         payload: { id: toolUseId, progress },
