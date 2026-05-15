@@ -110,6 +110,12 @@ class ToolUseContextOptions:
     # avoid pulling the AgentDefinitionsResult TypedDict into Tool.py's
     # import graph.
     agentDefinitions: Any | None = None
+    # SkillTool fork lane — current skill-fork recursion depth. Bumped by
+    # SkillTool._call_fork_fresh on entry and inherited by sub-contexts
+    # via ``dataclasses.replace``. SkillTool refuses dispatch when this
+    # would exceed ``MAX_SKILL_FORK_DEPTH`` so a skill can compose two
+    # other skills (A→B→C) without risking unbounded recursion.
+    skillForkDepth: int = 0
     # Subset for v1; expanded as features land:
     # commands, tools, thinkingConfig, mcpClients, mcpResources,
     # querySource, refreshTools — Phase 1.2+.

@@ -11,6 +11,7 @@ import {
   LogOut,
   Download,
   Bot,
+  BookOpen,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -24,9 +25,15 @@ const TOOL_ICONS = {
   TodoWrite: ListChecks,
   ExportDeck: Download,
   Agent: Bot,
+  Skill: BookOpen,
 };
 
 const HIDDEN_TOOLS = new Set(["ExitPlanMode", "TodoWrite"]);
+
+// Tools that render the SubagentActivityList when they have intermediate
+// activity. Agent always nests subagent work; Skill nests sub-loop work
+// only in fork mode (inline mode never produces agent_progress events).
+const NESTING_TOOLS = new Set(["Agent", "Skill"]);
 
 // Pull a one-line action summary out of an agent_progress payload. The
 // payload's ``message`` is the full subagent message; we surface the
@@ -146,12 +153,13 @@ export default function ToolUseBlock({
   if (HIDDEN_TOOLS.has(name)) return null;
 
   const DoneIcon = TOOL_ICONS[name] || Wrench;
-  // Skip the scalar progress text for Agent — the subagentActivity list
-  // below carries the live status. For other tools, agent_progress
-  // payloads never reach here so the scalar render path is unchanged.
-  const isAgent = name === "Agent";
+  // Skip the scalar progress text for tools that nest sub-loop activity —
+  // their SubagentActivityList below carries the live status. Other tools
+  // never produce agent_progress events so the scalar render path is
+  // unchanged for them.
+  const nests = NESTING_TOOLS.has(name);
   const progressText =
-    progress && !isAgent
+    progress && !nests
       ? typeof progress === "string"
         ? progress
         : progress.message || ""
@@ -175,7 +183,7 @@ export default function ToolUseBlock({
           <span className="text-gray-500 not-italic">— {progressText}</span>
         )}
       </div>
-      {isAgent && subagentActivity?.length > 0 && (
+      {nests && subagentActivity?.length > 0 && (
         <SubagentActivityList activity={subagentActivity} active={active} />
       )}
     </>

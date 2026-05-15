@@ -71,6 +71,11 @@ class PromptCommand(CommandBase, total=False):
     skill_root: str
     context: Literal["inline", "fork"]
     agent: str
+    # SkillTool fork lane: optional text appended to the base agent's
+    # system prompt when the skill runs in fork mode. Lets a skill
+    # author declare additional persona/framing on top of the base
+    # agent's identity without replacing it.
+    system_prompt_overlay: str
     effort: str
     paths: list[str]
     get_prompt_for_command: Callable[[str, "ToolUseContext"], Awaitable[list[dict]]]

@@ -128,11 +128,31 @@ def parse_skill_file(
     is_hidden = bool(fm.get("isHidden") or fm.get("is_hidden") or False)
     model_override = fm.get("model")
     arg_names = fm.get("argNames") or fm.get("arg_names") or []
-    # forceFork is the source's way to say "always run this skill in a
-    # subagent". Edwin maps that to the typed ``context: "fork"`` field.
-    # The actual fork plumbing lands in 2.7b.3 — until then ``context``
-    # is metadata only, dispatcher always runs inline.
-    context_mode = "fork" if (fm.get("forceFork") or fm.get("force_fork")) else "inline"
+    # forceFork / fork is the per-skill opt-in for SkillTool fork mode.
+    # When set, SkillTool spawns a fresh sub-query() (its own message
+    # context, strict allowed_tools enforcement, base-agent persona,
+    # caller intent threaded into the system prompt). Default = inline:
+    # SkillTool returns the expanded body as a tool_result the caller
+    # reads on its next iteration. Aliases ``forceFork`` (source TS) and
+    # ``fork`` (edwin-native) both accepted.
+    context_mode = (
+        "fork"
+        if (fm.get("forceFork") or fm.get("force_fork") or fm.get("fork"))
+        else "inline"
+    )
+    # Fork lane: which built-in agent's persona the fork runs under. The
+    # base agent provides the system prompt; the skill's overlay (below)
+    # is appended. Default = "general-purpose" so an author who opts into
+    # fork without specifying agent gets a sensible identity.
+    base_agent = _ensure_str(fm.get("agent") or "")
+    # Fork lane: optional text appended to the base agent's system prompt
+    # so the skill author can layer additional framing on top of the base
+    # persona without replacing it.
+    system_prompt_overlay = _ensure_str(
+        fm.get("systemPromptOverlay")
+        or fm.get("system_prompt_overlay")
+        or ""
+    )
 
     async def _get_prompt(args: str, _ctx: Any) -> list[dict]:
         """Closure baked at parse time — captures the per-skill body
@@ -166,5 +186,9 @@ def parse_skill_file(
         cmd["model"] = model_override
     if arg_names:
         cmd["arg_names"] = list(arg_names)
+    if base_agent:
+        cmd["agent"] = base_agent
+    if system_prompt_overlay:
+        cmd["system_prompt_overlay"] = system_prompt_overlay
 
     return cmd
