@@ -39,6 +39,7 @@ def is_preapproved_url(url: str) -> bool:
     """Convenience wrapper that parses the URL first."""
     try:
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         return is_preapproved_host(parsed.hostname or "", parsed.path or "")
     except Exception:

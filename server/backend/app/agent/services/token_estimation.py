@@ -94,11 +94,7 @@ def _estimate_block_tokens(block: Any) -> int:
         # blindly rather than doing a recursive walk.
         name = block.get("name") or ""
         input_str = str(block.get("input") or "")
-        return (
-            estimate_tokens(name)
-            + estimate_tokens(input_str)
-            + overhead
-        )
+        return estimate_tokens(name) + estimate_tokens(input_str) + overhead
 
     if btype == "tool_result":
         # Content can be a string or a list of nested blocks (Anthropic's

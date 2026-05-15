@@ -33,6 +33,7 @@ log = get_logger(__name__)
 
 class _McpToolInput(RootModel[dict[str, Any]]):
     """Permissive input schema — validation happens server-side."""
+
     pass
 
 
@@ -59,7 +60,9 @@ class McpDynamicTool(BaseTool):
         self._description = mcp_tool.get("description", "") or ""
         raw_schema = mcp_tool.get("inputSchema") or {"type": "object", "properties": {}}
         # Some servers return non-dict / bad schemas; coerce to a safe shape.
-        self._raw_schema: dict[str, Any] = raw_schema if isinstance(raw_schema, dict) else {"type": "object"}
+        self._raw_schema: dict[str, Any] = (
+            raw_schema if isinstance(raw_schema, dict) else {"type": "object"}
+        )
         self._annotations: dict[str, Any] = mcp_tool.get("annotations") or {}
         self._manager = manager
 

@@ -56,7 +56,6 @@ from .services.compact.snip_compact import snip_compact_if_needed
 from .types.hooks import CanUseToolFn
 from .utils.command_lifecycle import notify_command_lifecycle
 from .utils.context_collapse import apply_collapses_if_needed
-from .utils.tool_result_storage import apply_tool_result_budget
 
 log = get_logger(__name__)
 
@@ -71,8 +70,6 @@ if TYPE_CHECKING:
     from .types.message import (
         AssistantMessage,
         Message,
-        RequestStartEvent,
-        StreamEvent,
         UserMessage,
     )
 
@@ -94,6 +91,7 @@ class QueryParams:
       - skipCacheWrite (Phase 3 prompt cache)
       - maxOutputTokensOverride (Phase 3 recovery)
     """
+
     messages: list["Message"]
     tools: Tools
     canUseTool: CanUseToolFn
@@ -123,6 +121,7 @@ class State:
     that v1 reads-but-doesn't-write. Continue sites write `state =
     replace(state, ...)` instead of N separate assignments.
     """
+
     messages: list["Message"]
     toolUseContext: ToolUseContext
     turnCount: int = 1
@@ -154,8 +153,7 @@ def _extract_tool_uses(assistant_msg: "AssistantMessage") -> list[dict[str, Any]
     if not isinstance(content, list):
         return []
     return [
-        block for block in content
-        if isinstance(block, dict) and block.get("type") == "tool_use"
+        block for block in content if isinstance(block, dict) and block.get("type") == "tool_use"
     ]
 
 
@@ -408,26 +406,33 @@ async def _query_body(
             return
 
         # ── Phase 3 — context preprocessing pipeline ────────────────────────
-        # Five stages in source's order (src/query.ts:379→454). ORDER MATTERS:
+        # Four stages in source's order (src/query.ts:379→454). ORDER MATTERS:
         #
-        #   1. apply_tool_result_budget — disk-spill oversized tool_results
-        #      to ``<cwd>/.edwin/tool_results/`` and replace in-message
-        #      content with a marker. Lossless (full content on disk).
-        #      Real impl lands in 3.4.
-        #   2. snip_compact_if_needed   — documented stub. Source itself
+        #   1. snip_compact_if_needed   — documented stub. Source itself
         #      is a 17-line stub. Reports ``tokens_freed`` plumbed into
         #      autocompact's threshold; algorithm TBD post-Phase-5.
-        #   3. microcompact             — DEFERRED no-op. Phase 3.3 was
+        #   2. microcompact             — DEFERRED no-op. Phase 3.3 was
         #      deferred — folding tool_results without prompt caching
         #      is strict context loss. See
         #      .cursor/rules/compaction-folding-deferred.mdc. Stage
         #      stays so the pipeline shape is reversible.
-        #   4. apply_collapses_if_needed — DEFERRED no-op. Same reasoning
+        #   3. apply_collapses_if_needed — DEFERRED no-op. Same reasoning
         #      as microcompact (lossy fold without caching offset). See
         #      same rule.
-        #   5. autocompact              — LLM summary at ~80% threshold;
+        #   4. autocompact              — LLM summary at ~80% threshold;
         #      returns ``(CompactionResult, new_consecutive_failures)``
         #      threaded through ``State`` (3.2 real).
+        #
+        # Source's pipeline started with ``applyToolResultBudget`` — a
+        # disk-spill of oversized tool_results into ``<cwd>/.edwin/
+        # tool_results/`` with an in-message marker pointing at the file.
+        # That stage is removed in Edwin because the deployment target is
+        # a multi-instance webapp: container filesystems are ephemeral
+        # and instance-affined, so the spill would dangle across replicas
+        # and rarely survive a restart. Tools cap their own response
+        # sizes via ``maxResultSizeChars``; targeted readers (e.g.
+        # ``ReadSlide``) avoid the giant-list-then-filter pattern that
+        # made the spill necessary upstream.
         #
         # ``query_checkpoint`` events bracket the pipeline so chat-ui /
         # tests can observe stage boundaries without subscribing to each
@@ -438,23 +443,20 @@ async def _query_body(
 
         yield {"type": "query_checkpoint", "stage": "preprocess_start"}
 
-        messages_for_query = await apply_tool_result_budget(
-            messages_for_query, tool_use_context,
-        )
-        yield {"type": "query_checkpoint", "stage": "tool_result_budget_done"}
-
         snip_result = snip_compact_if_needed(messages_for_query)
         messages_for_query = snip_result.messages
         yield {"type": "query_checkpoint", "stage": "snip_compact_done"}
 
         microcompact_result = await deps.microcompact(
-            messages_for_query, tool_use_context,
+            messages_for_query,
+            tool_use_context,
         )
         messages_for_query = microcompact_result.messages
         yield {"type": "query_checkpoint", "stage": "microcompact_done"}
 
         collapse_result = await apply_collapses_if_needed(
-            messages_for_query, tool_use_context,
+            messages_for_query,
+            tool_use_context,
         )
         messages_for_query = collapse_result.messages
         yield {"type": "query_checkpoint", "stage": "context_collapse_done"}
@@ -463,13 +465,11 @@ async def _query_body(
         # may carry a ``boundary`` to inject onto the message stream and a
         # ``kept_messages`` replacement; 3.1 stub returns no_op (skipped),
         # so neither happens. Wire-up is final.
-        compaction_result, state.consecutive_autocompact_failures = (
-            await deps.autocompact(
-                messages_for_query,
-                tool_use_context,
-                snip_tokens_freed=snip_result.tokens_freed,
-                consecutive_failures=state.consecutive_autocompact_failures,
-            )
+        compaction_result, state.consecutive_autocompact_failures = await deps.autocompact(
+            messages_for_query,
+            tool_use_context,
+            snip_tokens_freed=snip_result.tokens_freed,
+            consecutive_failures=state.consecutive_autocompact_failures,
         )
         if not compaction_result.skipped:
             # Real compaction happened (3.2+ behavior) — replace the working
@@ -554,6 +554,7 @@ async def _query_body(
                     system_prompt=params.systemPrompt,
                     thinking=tool_use_context.options.thinking,
                 )
+
             return _factory
 
         try:
@@ -629,8 +630,11 @@ async def _query_body(
                 if len(chunk) == 1:
                     # Single safe tool — no need for the funnel machinery.
                     async for ev in _execute_single_tool(
-                        chunk[0], params.tools, tool_use_context,
-                        params.canUseTool, parent,
+                        chunk[0],
+                        params.tools,
+                        tool_use_context,
+                        params.canUseTool,
+                        parent,
                     ):
                         yield ev
                         if isinstance(ev, dict) and ev.get("type") == "user":
@@ -640,8 +644,11 @@ async def _query_body(
                     # tool_result UserMessages per-tool to preserve order.
                     buckets: list[list["UserMessage"]] = [[] for _ in chunk]
                     async for idx, ev in _run_parallel_chunk(
-                        chunk, params.tools, tool_use_context,
-                        params.canUseTool, parent,
+                        chunk,
+                        params.tools,
+                        tool_use_context,
+                        params.canUseTool,
+                        parent,
                     ):
                         yield ev
                         if isinstance(ev, dict) and ev.get("type") == "user":
@@ -653,7 +660,11 @@ async def _query_body(
 
             # Unsafe backend tool — run solo, serial.
             async for ev in _execute_single_tool(
-                tu, params.tools, tool_use_context, params.canUseTool, parent,
+                tu,
+                params.tools,
+                tool_use_context,
+                params.canUseTool,
+                parent,
             ):
                 yield ev
                 if isinstance(ev, dict) and ev.get("type") == "user":
@@ -670,6 +681,7 @@ async def _query_body(
         if first_interactive_idx is not None:
             parallel_calls: list[dict[str, Any]] = []
             sequential_calls: list[dict[str, Any]] = []
+            interactive_calls: list[tuple[str, str]] = []
             for j in range(first_interactive_idx, len(all_tool_uses)):
                 tu = all_tool_uses[j]
                 tool = find_tool_by_name(params.tools, tu.get("name", ""))
@@ -680,6 +692,7 @@ async def _query_body(
                     "tool_name": tu.get("name", ""),
                     "tool_input": tu.get("input", {}),
                 }
+                interactive_calls.append((tu.get("id", ""), tu.get("name", "")))
                 if _is_safe(tool, tu.get("input", {})):
                     parallel_calls.append(call)
                 else:
@@ -689,11 +702,33 @@ async def _query_body(
             for tr in tool_results:
                 for b in tr.get("message", {}).get("content", []):
                     if b.get("type") == "tool_result":
-                        prior_results.append({
-                            "call_id": b.get("tool_use_id", ""),
-                            "output": b.get("content", ""),
-                            "success": not b.get("is_error", False),
-                        })
+                        prior_results.append(
+                            {
+                                "call_id": b.get("tool_use_id", ""),
+                                "output": b.get("content", ""),
+                                "success": not b.get("is_error", False),
+                            }
+                        )
+
+            # ``tool_call_complete`` — symmetric with the non-interactive
+            # path (``_execute_single_tool``'s ``finally``). Backend-
+            # executed tools emit one per call after their real
+            # execution; interactive tools have no real execution on
+            # the backend (the work is hand-off to the user), so we
+            # emit at the hand-off boundary — right before the
+            # tool_request envelope. The FE consumes this via
+            # ``TOOL_CALL_COMPLETE`` to seal the per-tool spinner the
+            # same way it does for every other tool. Without these
+            # events, AskUserQuestion's tool block would only get
+            # sealed by the leg-end ``STREAM_DONE`` fallback (later
+            # and less precise).
+            for tool_use_id, tool_name in interactive_calls:
+                yield {
+                    "type": "tool_call_complete",
+                    "call_id": tool_use_id,
+                    "name": tool_name,
+                    "success": True,
+                }
 
             yield {
                 "type": "tool_request",

@@ -8,6 +8,7 @@ Revision ID: 0005
 Revises: 0004
 Create Date: 2026-04-28
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -19,14 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "ALTER TABLE conversations "
-        "ADD COLUMN total_input_tokens BIGINT NOT NULL DEFAULT 0"
-    )
-    op.execute(
-        "ALTER TABLE conversations "
-        "ADD COLUMN total_output_tokens BIGINT NOT NULL DEFAULT 0"
-    )
+    op.execute("ALTER TABLE conversations ADD COLUMN total_input_tokens BIGINT NOT NULL DEFAULT 0")
+    op.execute("ALTER TABLE conversations ADD COLUMN total_output_tokens BIGINT NOT NULL DEFAULT 0")
 
 
 def downgrade() -> None:

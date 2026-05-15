@@ -9,8 +9,8 @@ DESCRIPTION = (
     "Requires an active project — fails otherwise.\n\n"
     "## Workflow — follow IN ORDER\n\n"
     "  1. **Confirm scope with the user.** Unless the user's last "
-    "message explicitly tied the fact to this project (\"for this "
-    "deck\", \"in this project\", \"the audience is…\", \"deadline is…\"), "
+    'message explicitly tied the fact to this project ("for this '
+    'deck", "in this project", "the audience is…", "deadline is…"), '
     "call `AskUserQuestion` first to confirm whether to save here or "
     "to `SaveUserMemory`. Memory writes are stateful — never assume "
     "scope.\n"
@@ -20,15 +20,15 @@ DESCRIPTION = (
     "  3. **Save** with the chosen slug, type, name, description, body.\n\n"
     "## When to save\n\n"
     "  - You learn this deck's audience, deadline, key message, "
-    "stakeholder voice, or constraints → `type=\"project\"` (or "
+    'stakeholder voice, or constraints → `type="project"` (or '
     "`decision` / `stakeholder` for finer categories).\n"
     "  - User makes a decision specific to this deck (chosen brand for "
     "this project, agreed narrative angle, slide-count target) → "
-    "`type=\"decision\"`.\n"
+    '`type="decision"`.\n'
     "  - You learn who the audience is or who's reviewing the deck → "
-    "`type=\"stakeholder\"`.\n"
+    '`type="stakeholder"`.\n'
     "  - User references an external resource specific to this project "
-    "(client brand book URL, source data file) → `type=\"reference\"`.\n\n"
+    '(client brand book URL, source data file) → `type="reference"`.\n\n'
     "## What NOT to save here\n\n"
     "  - The user's cross-project preferences (general feedback "
     "patterns, default brand, role). Those belong in `SaveUserMemory`.\n"
@@ -37,10 +37,10 @@ DESCRIPTION = (
     "project.\n\n"
     "## Conflict resolution\n\n"
     "  - **Decision changed** (\"actually let's go with audience X "
-    "instead of Y\") → re-save with the SAME slug. Body captures the "
+    'instead of Y") → re-save with the SAME slug. Body captures the '
     "current decision only.\n"
     "  - **Refined / clarified** → re-save with the same slug.\n"
-    "  - **Retracted** (\"forget that — we're not doing X anymore\") → "
+    '  - **Retracted** ("forget that — we\'re not doing X anymore") → '
     "call `DeleteMemory` instead.\n"
     "  - **NEVER** create a sibling slug that contradicts an existing "
     "entry.\n\n"

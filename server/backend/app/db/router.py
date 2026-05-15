@@ -155,6 +155,7 @@ def _date_params(start: str | None, end: str | None) -> dict:
 # (`get_my_usage`) rather than the generic `_proxy_get` because the
 # frontend expects a specific empty-state shape on failure.
 
+
 @router.get("/usage/me")
 async def my_usage(
     authorization: str | None = Header(default=None),
@@ -175,6 +176,7 @@ async def my_usage(
 
 # ── Admin ──────────────────────────────────────────────────────────────
 # AuthZ (is-admin check) is enforced by the DB service; we just forward.
+
 
 @router.get("/admin/stats")
 async def admin_stats(
@@ -204,6 +206,7 @@ async def admin_usage(
 # need a row in project_members to act on a project. ``get_admin_user``
 # is the only gate.
 
+
 @router.get("/admin/projects")
 async def admin_list_projects(authorization: str | None = Header(default=None)):
     return await _proxy_get("/api/admin/projects", authorization)
@@ -215,7 +218,8 @@ async def admin_list_project_conversations(
     authorization: str | None = Header(default=None),
 ):
     return await _proxy_get(
-        f"/api/admin/projects/{project_id}/conversations", authorization,
+        f"/api/admin/projects/{project_id}/conversations",
+        authorization,
     )
 
 
@@ -225,7 +229,8 @@ async def admin_list_project_members(
     authorization: str | None = Header(default=None),
 ):
     return await _proxy_get(
-        f"/api/admin/projects/{project_id}/members", authorization,
+        f"/api/admin/projects/{project_id}/members",
+        authorization,
     )
 
 
@@ -236,7 +241,9 @@ async def admin_add_project_member(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "POST", f"/api/admin/projects/{project_id}/members", authorization,
+        "POST",
+        f"/api/admin/projects/{project_id}/members",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -262,9 +269,7 @@ async def admin_update_member_role(
     return body
 
 
-@router.delete(
-    "/admin/projects/{project_id}/members/{member_user_id}", status_code=204
-)
+@router.delete("/admin/projects/{project_id}/members/{member_user_id}", status_code=204)
 async def admin_remove_member(
     project_id: str,
     member_user_id: str,
@@ -285,7 +290,9 @@ async def admin_update_project(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "PATCH", f"/api/admin/projects/{project_id}", authorization,
+        "PATCH",
+        f"/api/admin/projects/{project_id}",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -299,7 +306,9 @@ async def admin_delete_project(
     authorization: str | None = Header(default=None),
 ):
     await _proxy(
-        "DELETE", f"/api/admin/projects/{project_id}", authorization,
+        "DELETE",
+        f"/api/admin/projects/{project_id}",
+        authorization,
     )
     return Response(status_code=204)
 
@@ -328,6 +337,7 @@ async def admin_transfer_ownership(
 # cache so admin changes propagate to in-flight ``/turn`` traffic
 # without waiting for the cache to expire.
 
+
 @router.get("/admin/settings/models")
 async def admin_get_model_settings(authorization: str | None = Header(default=None)):
     return await _proxy_get("/api/admin/settings/models", authorization)
@@ -339,7 +349,9 @@ async def admin_update_model_settings(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "PUT", "/api/admin/settings/models", authorization,
+        "PUT",
+        "/api/admin/settings/models",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -367,6 +379,7 @@ async def admin_delete_user(
 # agent turns; this router only exposes reads + project/conversation
 # lifecycle.
 
+
 @router.get("/projects")
 async def list_projects(authorization: str | None = Header(default=None)):
     return await _proxy_get("/api/projects", authorization)
@@ -390,7 +403,10 @@ async def update_project(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "PATCH", f"/api/projects/{project_id}", authorization, json_body=payload,
+        "PATCH",
+        f"/api/projects/{project_id}",
+        authorization,
+        json_body=payload,
     )
     if status >= 400:
         raise HTTPException(status_code=status, detail=str(body))
@@ -410,6 +426,7 @@ async def delete_project(
 # Sharing endpoints. AuthZ (viewer / editor / owner) is enforced server-side
 # by the DB service via require_project_access; we just forward.
 
+
 @router.get("/projects/{project_id}/members")
 async def list_project_members(
     project_id: str,
@@ -425,7 +442,9 @@ async def add_project_member(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "POST", f"/api/projects/{project_id}/members", authorization,
+        "POST",
+        f"/api/projects/{project_id}/members",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -480,7 +499,9 @@ async def create_conversation(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "POST", f"/api/projects/{project_id}/conversations", authorization,
+        "POST",
+        f"/api/projects/{project_id}/conversations",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -498,7 +519,9 @@ async def update_conversation(
     to db-service which enforces editor role + length validation.
     """
     status, body = await _proxy(
-        "PATCH", f"/api/conversations/{conversation_id}", authorization,
+        "PATCH",
+        f"/api/conversations/{conversation_id}",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -533,7 +556,9 @@ async def list_messages(
     if before_sequence is not None:
         params["before_sequence"] = before_sequence
     return await _proxy_get(
-        f"/api/conversations/{conversation_id}/messages", authorization, params,
+        f"/api/conversations/{conversation_id}/messages",
+        authorization,
+        params,
     )
 
 
@@ -542,6 +567,7 @@ async def list_messages(
 # delete / reorder under /slides/{sid}. Slide tools also hit these via the
 # backend's own db_client, so forwarding them through the proxy keeps the
 # slide HTTP contract observable from the browser side too.
+
 
 @router.get("/projects/{project_id}/slides")
 async def list_slides(
@@ -558,7 +584,9 @@ async def create_slide(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "POST", f"/api/projects/{project_id}/slides", authorization,
+        "POST",
+        f"/api/projects/{project_id}/slides",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -573,7 +601,10 @@ async def update_slide(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "PATCH", f"/api/slides/{slide_id}", authorization, json_body=payload,
+        "PATCH",
+        f"/api/slides/{slide_id}",
+        authorization,
+        json_body=payload,
     )
     if status >= 400:
         raise HTTPException(status_code=status, detail=str(body))
@@ -596,7 +627,9 @@ async def reorder_slide(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "POST", f"/api/slides/{slide_id}/reorder", authorization,
+        "POST",
+        f"/api/slides/{slide_id}/reorder",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -624,7 +657,9 @@ async def upsert_user_memory(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "POST", f"/api/users/{azure_oid}/memories", authorization,
+        "POST",
+        f"/api/users/{azure_oid}/memories",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -657,7 +692,9 @@ async def upsert_project_memory(
     authorization: str | None = Header(default=None),
 ):
     status, body = await _proxy(
-        "POST", f"/api/projects/{project_id}/memories", authorization,
+        "POST",
+        f"/api/projects/{project_id}/memories",
+        authorization,
         json_body=payload,
     )
     if status >= 400:
@@ -673,3 +710,121 @@ async def delete_project_memory(
 ):
     await _proxy("DELETE", f"/api/projects/{project_id}/memories/{slug}", authorization)
     return Response(status_code=204)
+
+
+# ── Masters — project-scoped deck templates ──────────────────────────────────
+# Read-only proxies to db-service. Bytes-bearing creates go through
+# /api/agent/masters/upload (multipart) so we don't shuffle 50 MB of
+# base64 through this dumb proxy.
+
+
+@router.get("/projects/{project_id}/masters")
+async def list_masters(
+    project_id: str,
+    authorization: str | None = Header(default=None),
+):
+    return await _proxy_get(f"/api/projects/{project_id}/masters", authorization)
+
+
+@router.get("/masters/{master_id}")
+async def get_master(
+    master_id: str,
+    authorization: str | None = Header(default=None),
+):
+    return await _proxy_get(f"/api/masters/{master_id}", authorization)
+
+
+@router.get("/masters/{master_id}/pptx")
+async def get_master_pptx(
+    master_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Stream the original .pptx — bytes path. _proxy_get returns
+    JSON; we need raw bytes here, so go through httpx directly."""
+    import httpx  # noqa: PLC0415
+
+    from app.config import get_settings  # noqa: PLC0415
+
+    base = get_settings().app.db_service_url.rstrip("/")
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.get(
+            f"{base}/api/masters/{master_id}/pptx",
+            headers={"Authorization": authorization} if authorization else {},
+        )
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    return Response(
+        content=resp.content,
+        media_type=("application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+    )
+
+
+@router.post("/masters/{master_id}/activate")
+async def activate_master(
+    master_id: str,
+    authorization: str | None = Header(default=None),
+):
+    status, body = await _proxy(
+        "POST",
+        f"/api/masters/{master_id}/activate",
+        authorization,
+    )
+    if status >= 400:
+        raise HTTPException(status_code=status, detail=str(body))
+    return body
+
+
+@router.delete("/masters/{master_id}", status_code=204)
+async def delete_master(
+    master_id: str,
+    authorization: str | None = Header(default=None),
+):
+    await _proxy("DELETE", f"/api/masters/{master_id}", authorization)
+    return Response(status_code=204)
+
+
+# ── Master layouts (curation UI) ─────────────────────────────────────────────
+# GET listing + per-row PATCH/default endpoints. The detail page reads
+# the listing once and dispatches PATCHes per cell edit; we don't proxy
+# bulk-update because each curation change is independently meaningful
+# (and rate limits stay aligned with how a human edits).
+
+
+@router.get("/masters/{master_id}/layouts")
+async def list_master_layouts(
+    master_id: str,
+    authorization: str | None = Header(default=None),
+):
+    return await _proxy_get(f"/api/masters/{master_id}/layouts", authorization)
+
+
+@router.patch("/master_layouts/{layout_id}")
+async def patch_master_layout(
+    layout_id: str,
+    payload: dict[str, Any],
+    authorization: str | None = Header(default=None),
+):
+    status, body = await _proxy(
+        "PATCH",
+        f"/api/master_layouts/{layout_id}",
+        authorization,
+        json_body=payload,
+    )
+    if status >= 400:
+        raise HTTPException(status_code=status, detail=str(body))
+    return body
+
+
+@router.post("/master_layouts/{layout_id}/default")
+async def post_master_layout_default(
+    layout_id: str,
+    authorization: str | None = Header(default=None),
+):
+    status, body = await _proxy(
+        "POST",
+        f"/api/master_layouts/{layout_id}/default",
+        authorization,
+    )
+    if status >= 400:
+        raise HTTPException(status_code=status, detail=str(body))
+    return body

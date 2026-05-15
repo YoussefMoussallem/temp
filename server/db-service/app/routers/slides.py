@@ -3,13 +3,14 @@
 Access goes through ``require_project_access`` on the slide's parent
 project:
 
-| Operation                                 | Min role |
-|-------------------------------------------|----------|
-| GET    /projects/{id}/slides              | viewer   |
-| POST   /projects/{id}/slides              | editor   |
-| PATCH  /slides/{slide_id}                 | editor   |
-| DELETE /slides/{slide_id}                 | editor   |
-| POST   /slides/{slide_id}/reorder         | editor   |
+| Operation                                 | Min role | Returns                |
+|-------------------------------------------|----------|------------------------|
+| GET    /projects/{id}/slides              | viewer   | `{slides: [...]}`      |
+| POST   /projects/{id}/slides              | editor   | created slide          |
+| GET    /slides/{slide_id}                 | viewer   | the slide              |
+| PATCH  /slides/{slide_id}                 | editor   | updated slide          |
+| DELETE /slides/{slide_id}                 | editor   | `{slides: [...]}` post-renumber |
+| POST   /slides/{slide_id}/reorder         | editor   | `{slides: [...]}` post-renumber |
 
 Endpoints split across two prefixes:
 - ``/projects/{project_id}/slides`` — list + create (project-scoped)
@@ -47,6 +48,12 @@ class CreateSlideRequest(BaseModel):
     html: str
     title: str | None = None
     after_slide_id: UUID | None = None
+    # Explicit-position insert. When provided, skips the transactional
+    # shift used by the after_slide_id path — letting the caller
+    # safely run many creates in parallel by pre-numbering positions.
+    # Mutually exclusive with `after_slide_id`; supplying both is a
+    # 400.
+    position: int | None = None
 
 
 class UpdateSlideRequest(BaseModel):
@@ -68,9 +75,7 @@ def _serialize(slide) -> dict:
     return d
 
 
-async def _require_slide_access(
-    pool: Pool, slide_id: UUID, user: CurrentUser, *, min_role: str
-):
+async def _require_slide_access(pool: Pool, slide_id: UUID, user: CurrentUser, *, min_role: str):
     """Resolve a slide → its project → role-check the caller.
 
     Raises 404 if the slide is missing or the caller has no membership;
@@ -110,6 +115,11 @@ async def create(
 ):
     pool: Pool = await get_pool()
     await require_project_access(pool, project_id, user, min_role="editor")
+    if body.position is not None and body.after_slide_id is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either `position` or `after_slide_id`, not both.",
+        )
     try:
         slide = await create_slide(
             pool,
@@ -117,10 +127,21 @@ async def create(
             html=body.html,
             title=body.title,
             after_slide_id=body.after_slide_id,
+            position=body.position,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     cache_del(_slides_cache_key(project_id))
+    return _serialize(slide)
+
+
+@router.get("/slides/{slide_id}")
+async def get_one(
+    slide_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+):
+    pool: Pool = await get_pool()
+    slide = await _require_slide_access(pool, slide_id, user, min_role="viewer")
     return _serialize(slide)
 
 
@@ -139,16 +160,19 @@ async def patch(
     return _serialize(updated)
 
 
-@router.delete("/slides/{slide_id}", status_code=204)
+@router.delete("/slides/{slide_id}")
 async def delete(
     slide_id: UUID,
     user: CurrentUser = Depends(get_current_user),
 ):
     pool: Pool = await get_pool()
     slide = await _require_slide_access(pool, slide_id, user, min_role="editor")
-    await delete_slide(pool, slide_id)
+    slides = await delete_slide(pool, slide_id)
     cache_del(_slides_cache_key(slide.project_id))
-    return None
+    # Returns the full ordered list (post-renumber) so the caller can
+    # render the new positions without a follow-up fetch — same shape
+    # as the reorder endpoint.
+    return {"slides": [_serialize(s) for s in slides]}
 
 
 @router.post("/slides/{slide_id}/reorder")
@@ -160,9 +184,7 @@ async def reorder(
     pool: Pool = await get_pool()
     slide = await _require_slide_access(pool, slide_id, user, min_role="editor")
     try:
-        slides = await reorder_slide(
-            pool, slide_id, after_slide_id=body.after_slide_id
-        )
+        slides = await reorder_slide(pool, slide_id, after_slide_id=body.after_slide_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     cache_del(_slides_cache_key(slide.project_id))

@@ -45,18 +45,18 @@
   0%, 45% {
     opacity: 1;
     box-shadow:
-      0 0 3px var(--color-brand),
-      0 0 12px color-mix(in srgb, var(--color-brand) 35%, transparent);
+      0 0 2px var(--color-brand),
+      0 0 8px color-mix(in srgb, var(--color-brand) 30%, transparent);
   }
   65% {
     opacity: 0.25;
-    box-shadow: 0 0 1px color-mix(in srgb, var(--color-brand) 20%, transparent);
+    box-shadow: 0 0 1px color-mix(in srgb, var(--color-brand) 15%, transparent);
   }
   100% {
     opacity: 1;
     box-shadow:
-      0 0 3px var(--color-brand),
-      0 0 12px color-mix(in srgb, var(--color-brand) 35%, transparent);
+      0 0 2px var(--color-brand),
+      0 0 8px color-mix(in srgb, var(--color-brand) 30%, transparent);
   }
 }
 
@@ -64,9 +64,9 @@
 .streaming-cursor::after {
   content: '';
   display: inline-block;
-  width: 1.5px;
-  height: 1em;
-  margin-left: 3px;
+  width: 1px;
+  height: 0.85em;
+  margin-left: 2px;
   vertical-align: -0.15em;
   background-color: var(--color-brand);
   border-radius: 999px;
@@ -85,9 +85,9 @@
 .streaming-text-tail > ol:last-child li:last-child::after {
   content: '';
   display: inline-block;
-  width: 1.5px;
-  height: 1em;
-  margin-left: 3px;
+  width: 1px;
+  height: 0.85em;
+  margin-left: 2px;
   vertical-align: -0.15em;
   background-color: var(--color-brand);
   border-radius: 999px;

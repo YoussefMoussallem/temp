@@ -41,7 +41,7 @@ class EnterPlanModeToolImpl(BaseTool[EnterPlanModeInput, str]):
         context.options.permissionMode = "plan"
         return ToolResult(
             data="Plan mode activated. Outline your approach with TodoWrite, "
-                 "then call ExitPlanMode with your complete plan."
+            "then call ExitPlanMode with your complete plan."
         )
 
 

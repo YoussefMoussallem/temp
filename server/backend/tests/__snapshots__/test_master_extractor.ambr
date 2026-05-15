@@ -1,0 +1,38 @@
+# serializer version: 1
+# name: test_extract_minimal_manifest_shape
+  dict({
+    'canvas': dict({
+      'h': 720,
+      'w': 1280,
+    }),
+    'chrome_count': 5,
+    'chrome_roles': list([
+      'body',
+      'date',
+      'footer',
+      'page_number',
+      'title',
+    ]),
+    'layout_count': 11,
+    'masters_count': 1,
+    'safe_area_keys': list([
+      'h',
+      'w',
+      'x',
+      'y',
+    ]),
+    'source_sha256_len': 64,
+    'theme_colors_keys': list([
+      'bg',
+      'neutral',
+      'primary',
+      'secondary',
+      'text',
+    ]),
+    'theme_fonts_keys': list([
+      'major',
+      'minor',
+    ]),
+    'themes_count': 1,
+  })
+# ---

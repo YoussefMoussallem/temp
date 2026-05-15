@@ -50,10 +50,7 @@ class PostgresConfig(BaseSettings):
         if self.use_entra_auth:
             return f"postgresql://{user}@{self.host}:{self.port}/{self.database}"
         password = quote(self.password, safe="")
-        return (
-            f"postgresql://{user}:{password}"
-            f"@{self.host}:{self.port}/{self.database}"
-        )
+        return f"postgresql://{user}:{password}@{self.host}:{self.port}/{self.database}"
 
     @property
     def sync_connection_dsn(self) -> str:

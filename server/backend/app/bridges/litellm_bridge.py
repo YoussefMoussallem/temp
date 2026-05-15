@@ -52,6 +52,7 @@ log = get_logger(__name__)
 
 # ── Exceptions ──────────────────────────────────────────────────────
 
+
 class CostCalculationError(Exception):
     """Raised when cost cannot be computed for a known-nonzero request.
 
@@ -60,14 +61,17 @@ class CostCalculationError(Exception):
     public API so call sites can catch and surface billing errors if
     we tighten the policy later.
     """
+
     pass
 
 
 # ── Model info cache ────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class ModelInfo:
     """One row from the proxy's model catalogue."""
+
     name: str
     max_input_tokens: int
     max_output_tokens: int
@@ -174,11 +178,12 @@ def _find(model: str) -> ModelInfo | None:
 
 _DEFAULT_CONTEXT_WINDOW = 128_000
 _DEFAULT_MAX_OUTPUT = 16_384
-_DEFAULT_INPUT_COST = 1.0 / 1_000_000   # $1/MTok
+_DEFAULT_INPUT_COST = 1.0 / 1_000_000  # $1/MTok
 _DEFAULT_OUTPUT_COST = 3.0 / 1_000_000  # $3/MTok
 
 
 # ── Public API ──────────────────────────────────────────────────────
+
 
 def get_context_window(model: str) -> int:
     """Return the context window (max input tokens) for *model*."""
@@ -203,15 +208,9 @@ def calculate_cost(
     """
     info = _find(model)
     if info:
-        return (
-            input_tokens * info.input_cost_per_token
-            + output_tokens * info.output_cost_per_token
-        )
+        return input_tokens * info.input_cost_per_token + output_tokens * info.output_cost_per_token
     if input_tokens or output_tokens:
-        return (
-            input_tokens * _DEFAULT_INPUT_COST
-            + output_tokens * _DEFAULT_OUTPUT_COST
-        )
+        return input_tokens * _DEFAULT_INPUT_COST + output_tokens * _DEFAULT_OUTPUT_COST
     return 0.0
 
 

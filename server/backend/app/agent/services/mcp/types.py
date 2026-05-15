@@ -15,6 +15,7 @@ from typing import Any, Union
 @dataclass
 class StdioServerConfig:
     """MCP server launched as a subprocess, speaking MCP over stdin/stdout."""
+
     name: str
     command: str
     args: list[str] = field(default_factory=list)
@@ -24,6 +25,7 @@ class StdioServerConfig:
 @dataclass
 class HttpServerConfig:
     """Remote MCP server over streamable HTTP."""
+
     name: str
     url: str
     headers: dict[str, str] = field(default_factory=dict)
@@ -40,6 +42,7 @@ class ServerStatus:
     `tools` holds the raw MCP tool descriptors (dicts with keys name, description,
     inputSchema, annotations) as returned by the server's tools/list call.
     """
+
     name: str
     connected: bool
     error: str | None = None

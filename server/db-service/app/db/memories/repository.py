@@ -46,7 +46,13 @@ async def upsert_user_memory(
 ) -> UserMemory:
     """Insert or update a user-scope memory keyed on (user_id, slug)."""
     row = await pool.fetchrow(
-        queries.USER_UPSERT, user_id, slug, type, name, description, body,
+        queries.USER_UPSERT,
+        user_id,
+        slug,
+        type,
+        name,
+        description,
+        body,
     )
     return UserMemory.from_record(row)
 
@@ -59,14 +65,17 @@ async def delete_user_memory(pool: Pool, user_id: str, slug: str) -> None:
 
 
 async def list_project_memories(
-    pool: Pool, project_id: UUID,
+    pool: Pool,
+    project_id: UUID,
 ) -> list[ProjectMemory]:
     rows = await pool.fetch(queries.PROJECT_LIST, project_id)
     return [ProjectMemory.from_record(r) for r in rows]
 
 
 async def get_project_memory(
-    pool: Pool, project_id: UUID, slug: str,
+    pool: Pool,
+    project_id: UUID,
+    slug: str,
 ) -> ProjectMemory | None:
     row = await pool.fetchrow(queries.PROJECT_GET, project_id, slug)
     return ProjectMemory.from_record(row) if row else None
@@ -92,7 +101,13 @@ async def upsert_project_memory(
     """
     row = await pool.fetchrow(
         queries.PROJECT_UPSERT,
-        project_id, slug, type, name, description, body, created_by_user_id,
+        project_id,
+        slug,
+        type,
+        name,
+        description,
+        body,
+        created_by_user_id,
     )
     return ProjectMemory.from_record(row)
 

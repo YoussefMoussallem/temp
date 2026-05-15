@@ -109,4 +109,5 @@ def create_app() -> FastAPI:
     logger.info("Edwin starting up")
     return app
 
+
 app = create_app()

@@ -64,9 +64,7 @@ class WebSearchToolImpl(BaseTool[WebSearchInput, WebSearchOutput]):
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         q = input.get("query", "") if isinstance(input, dict) else getattr(input, "query", "")
         if not q or not q.strip():
             return ValidationError(message="Missing or empty query", errorCode=1)
@@ -80,7 +78,7 @@ class WebSearchToolImpl(BaseTool[WebSearchInput, WebSearchOutput]):
         parent_message: Any,
         on_progress: Any | None = None,
     ) -> ToolResult[WebSearchOutput]:
-        from llm_provider import ChatRequest, Message, StreamEvent  # noqa: PLC0415
+        from llm_provider import ChatRequest, Message  # noqa: PLC0415
 
         parsed: WebSearchInput = (
             args if isinstance(args, WebSearchInput) else WebSearchInput(**args)

@@ -44,13 +44,11 @@ async def run_migrations(conn: asyncpg.Connection, *, directory: Path | None = N
     await conn.execute(LEDGER_DDL)
 
     applied: set[str] = {
-        row["filename"]
-        for row in await conn.fetch("SELECT filename FROM _migrations")
+        row["filename"] for row in await conn.fetch("SELECT filename FROM _migrations")
     }
 
     sql_files = sorted(
-        f for f in migrations_dir.iterdir()
-        if f.suffix == ".sql" and f.name not in applied
+        f for f in migrations_dir.iterdir() if f.suffix == ".sql" and f.name not in applied
     )
 
     if not sql_files:

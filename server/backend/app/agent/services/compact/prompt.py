@@ -34,19 +34,30 @@ from typing import Any, Mapping, Sequence
 # ── Constants ──────────────────────────────────────────────────────────────
 
 
-# Maximum chars per individual tool_result/text block when transcribing
-# the to-summarize portion. Source has a similar cap; ours is a guess.
-# # TUNE: source-parity unknown.
+# Per-block char cap for text and other narrative blocks. Kept
+# generous so a long assistant message survives intact.
+#
+# **Not applied to ``tool_result`` or ``tool_use`` blocks.** Those
+# carry the payloads the summary actually depends on — slide HTML,
+# fetched documents, memory bodies, the call args that define what
+# each tool did. Chopping them mid-payload erases the very details
+# the summary is supposed to compress faithfully ("the model created
+# 5 slides" is useless without knowing what's on them). The
+# transcript-level cap below is the only guard for those.
 _BLOCK_CHAR_CAP = 4000
 
-# Maximum chars for the entire transcribed conversation passed to the
-# summarizer. If the to-summarize portion is bigger than this we slice
-# down (keeping the head — the model's earliest context — and a tail
-# slice of the most-recent-but-still-being-dropped turns). The tail
-# helps the summarizer understand what kind of work was happening
-# right before the kept tail.
-# # TUNE: source-parity unknown.
-_TRANSCRIPT_CHAR_CAP = 64_000
+# Maximum chars for the entire transcribed conversation passed to
+# the summarizer. Sized to fit the summarizer model's 200K-token
+# context window comfortably (≈170K tokens of transcript leaves
+# headroom for the system prompt + framing). When the to-summarize
+# portion exceeds this we slice down (keeping the head and a tail
+# slice) so the summarizer sees both the conversation's starting
+# point and what was happening right before the kept tail.
+#
+# Previously 64K, which forced head-tail middle-truncation on
+# typical deck-building conversations with even ~10 slides. Bumped
+# so full slide payloads survive into the summary stage by default.
+_TRANSCRIPT_CHAR_CAP = 600_000
 
 
 # ── System prompt ──────────────────────────────────────────────────────────
@@ -125,7 +136,10 @@ def _block_to_text(block: Any) -> str:
         return str(block.get("text") or "")[:_BLOCK_CHAR_CAP]
     if btype == "tool_use":
         name = block.get("name") or "?"
-        inp = str(block.get("input") or {})[:_BLOCK_CHAR_CAP // 2]
+        # Full call input — CreateSlide's input IS the slide HTML, so
+        # chopping it would erase the deck content from the summary's
+        # view. Transcript-level cap is the only guard.
+        inp = str(block.get("input") or {})
         return f"[Called {name}({inp})]"
     if btype == "tool_result":
         content = block.get("content")
@@ -133,9 +147,8 @@ def _block_to_text(block: Any) -> str:
             content_text = "".join(_block_to_text(b) for b in content)
         else:
             content_text = str(content or "")
-        truncated = content_text[:_BLOCK_CHAR_CAP]
-        suffix = "" if len(content_text) <= _BLOCK_CHAR_CAP else "...(truncated)"
-        return f"[Tool result: {truncated}{suffix}]"
+        # Full content, no per-block cap — see ``_BLOCK_CHAR_CAP`` note.
+        return f"[Tool result: {content_text}]"
     if btype == "thinking":
         # Internal model reasoning — not useful for summarization. Skipped
         # entirely so the summarizer focuses on user-visible content.
@@ -206,7 +219,7 @@ def render_transcript(messages: Sequence[Any], *, char_cap: int = _TRANSCRIPT_CH
         head = head[:last_break_in_head]
     first_break_in_tail = tail.find("\n\n")
     if first_break_in_tail > 0 and first_break_in_tail < tail_budget // 2:
-        tail = tail[first_break_in_tail + 2:]
+        tail = tail[first_break_in_tail + 2 :]
 
     return f"{head}\n\n... (older middle of conversation omitted for length) ...\n\n{tail}"
 
@@ -219,11 +232,9 @@ def build_compact_user_message(transcript: str, *, manual: bool = False) -> str:
     summary content is the same; only the rationale shifts.
     """
     intent = (
-        "The user just ran `/compact` — they want a concise summary "
-        "right now."
+        "The user just ran `/compact` — they want a concise summary right now."
         if manual
-        else "The conversation has grown long enough that auto-compaction "
-        "is being triggered."
+        else "The conversation has grown long enough that auto-compaction is being triggered."
     )
     return (
         f"{intent}\n\n"

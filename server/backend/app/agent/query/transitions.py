@@ -22,36 +22,38 @@ from typing import Literal
 
 # Reasons the loop terminated (returned).
 TerminalReason = Literal[
-    "completed",          # No tool_use + stop hooks pass → return
-    "blocking_limit",     # Token count exceeds hard limit (PTL)
+    "completed",  # No tool_use + stop hooks pass → return
+    "blocking_limit",  # Token count exceeds hard limit (PTL)
     "aborted_streaming",  # User ESC during streaming
-    "model_error",        # API throws exception
-    "prompt_too_long",    # Reactive compact failed; PTL released
-    "image_error",        # Image size/type error
-    "stop_hook_prevented",# Hook injects preventContinuation:true
-    "max_turns",          # maxTurns guard exceeded
+    "model_error",  # API throws exception
+    "prompt_too_long",  # Reactive compact failed; PTL released
+    "image_error",  # Image size/type error
+    "stop_hook_prevented",  # Hook injects preventContinuation:true
+    "max_turns",  # maxTurns guard exceeded
 ]
 
 
 @dataclass(frozen=True)
 class Terminal:
     """Loop terminated; returned to caller."""
+
     reason: TerminalReason
     detail: str | None = None
 
 
 # Reasons the loop continued (next iteration).
 ContinueReason = Literal[
-    "tool_cycle",                 # Normal: tools executed, continue
-    "max_output_tokens_recovery", # Escalate to 64K, retry
-    "context_collapse_drain",     # Commit staged collapses, retry
-    "reactive_compact",           # On-the-fly compression, retry
-    "stop_hook_blocking_retry",   # Hook blocked; append error, retry
+    "tool_cycle",  # Normal: tools executed, continue
+    "max_output_tokens_recovery",  # Escalate to 64K, retry
+    "context_collapse_drain",  # Commit staged collapses, retry
+    "reactive_compact",  # On-the-fly compression, retry
+    "stop_hook_blocking_retry",  # Hook blocked; append error, retry
 ]
 
 
 @dataclass(frozen=True)
 class Continue:
     """Loop continued to next iteration; recorded on State.transition."""
+
     reason: ContinueReason
     detail: str | None = None

@@ -72,7 +72,8 @@ def _record_failure() -> None:
         _circuit_open_until = asyncio.get_event_loop().time() + _CIRCUIT_BREAKER_COOLDOWN_S
         logger.warning(
             "Redis: %d consecutive failures — opening circuit for %.0fs",
-            _consecutive_failures, _CIRCUIT_BREAKER_COOLDOWN_S,
+            _consecutive_failures,
+            _CIRCUIT_BREAKER_COOLDOWN_S,
         )
 
 
@@ -100,7 +101,9 @@ async def get_redis(config: RedisConfig | None = None) -> aioredis.Redis:
         if cfg.use_entra_auth:
             parsed = cfg.parsed_url()
             if not cfg.entra_principal_id:
-                raise ValueError("REDIS_ENTRA_PRINCIPAL_ID is required when REDIS_USE_ENTRA_AUTH=true")
+                raise ValueError(
+                    "REDIS_ENTRA_PRINCIPAL_ID is required when REDIS_USE_ENTRA_AUTH=true"
+                )
             token_provider = ManagedIdentityTokenProvider(
                 scope=REDIS_SCOPE,
                 client_id=cfg.entra_client_id,

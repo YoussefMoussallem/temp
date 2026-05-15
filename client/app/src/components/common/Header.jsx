@@ -1,4 +1,4 @@
-import { ChevronRight, Home, LogOut, User, BookOpen } from "lucide-react";
+import { ChevronRight, Home, LogOut, User, BookOpen, Layers } from "lucide-react";
 import { useAuth } from "frontend-comps";
 import ExportDeckButton from "../deck/ExportDeckButton";
 import ExportDeckDomButton from "../deck/ExportDeckDomButton";
@@ -20,6 +20,10 @@ export default function Header({
   onBackToProjects,
   onOpenUserMemory,
   onOpenProjectMemory,
+  onOpenMasters,
+  // Export buttons depend on DeckProvider — render them only when
+  // we know we're inside it (chat page yes; masters / memory pages no).
+  showDeckActions = true,
 }) {
   const { user, signOut } = useAuth();
   const userName = user?.name ?? user?.username ?? "";
@@ -60,11 +64,21 @@ export default function Header({
               <span>Project memory</span>
             </button>
           )}
+          {onOpenMasters && (
+            <button
+              onClick={onOpenMasters}
+              title="Master templates — manage the PowerPoint templates this deck inherits from"
+              className="ml-1 inline-flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium text-gray-500 hover:bg-brand-dim hover:text-brand transition-colors cursor-pointer"
+            >
+              <Layers size={11} />
+              <span>Masters</span>
+            </button>
+          )}
         </>
       )}
 
       <div className="ml-auto flex items-center gap-1">
-        {activeProjectName && (
+        {activeProjectName && showDeckActions && (
           <>
             <ExportDeckButton />
             <ExportDeckDomButton />

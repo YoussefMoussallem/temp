@@ -142,9 +142,7 @@ class McpConnectionManager:
         # extract whatever detail we can for the log.
         except BaseException as e:  # noqa: BLE001
             detail = _best_error_detail(e)
-            self._statuses[cfg.name] = ServerStatus(
-                name=cfg.name, connected=False, error=detail
-            )
+            self._statuses[cfg.name] = ServerStatus(name=cfg.name, connected=False, error=detail)
             log.warning(f"MCP: could not connect to '{cfg.name}': {detail}")
             # Best-effort teardown if connect() left partial state.
             try:
@@ -201,7 +199,10 @@ def _best_error_detail(exc: BaseException) -> str:
         low = m.lower()
         if any(k in low for k in ("ssl", "certificate", "tls")):
             return 3
-        if any(k in low for k in ("connecterror", "connectionrefused", "getaddrinfo", "name or service")):
+        if any(
+            k in low
+            for k in ("connecterror", "connectionrefused", "getaddrinfo", "name or service")
+        ):
             return 2
         if m.startswith(("CancelledError", "WouldBlock")):
             return 0

@@ -104,18 +104,20 @@ MAX_BACKOFF_SECS = 8.0
 #   - Anthropic-style: "input length and ``max_tokens`` exceed"
 #   - Generic: any of {"context_length", "prompt_too_long",
 #                       "context_window", "too long"}
-_PROMPT_TOO_LONG_HINTS = frozenset({
-    "context_length",
-    "context length",
-    "prompt_too_long",
-    "prompt is too long",
-    "context_window",
-    "context window",
-    "input is too long",
-    "input length and",
-    "exceeds the model",
-    "maximum context length",
-})
+_PROMPT_TOO_LONG_HINTS = frozenset(
+    {
+        "context_length",
+        "context length",
+        "prompt_too_long",
+        "prompt is too long",
+        "context_window",
+        "context window",
+        "input is too long",
+        "input length and",
+        "exceeds the model",
+        "maximum context length",
+    }
+)
 
 
 # ── Custom exception ──────────────────────────────────────────────────────
@@ -151,12 +153,15 @@ def _is_prompt_too_long(exc: Exception) -> bool:
 
 def _is_transient(exc: Exception) -> bool:
     """True iff the error is a class we retry blindly with backoff."""
-    return isinstance(exc, (
-        ProviderConnectionError,
-        ProviderServerError,
-        ProviderRateLimitError,
-        asyncio.TimeoutError,
-    ))
+    return isinstance(
+        exc,
+        (
+            ProviderConnectionError,
+            ProviderServerError,
+            ProviderRateLimitError,
+            asyncio.TimeoutError,
+        ),
+    )
 
 
 def _is_content_event(event: Any) -> bool:
@@ -258,22 +263,23 @@ async def with_retry(
                     recovered = await on_prompt_too_long()
                 except Exception as hook_e:  # noqa: BLE001
                     log.exception(
-                        "with_retry: on_prompt_too_long hook failed: %s", hook_e,
+                        "with_retry: on_prompt_too_long hook failed: %s",
+                        hook_e,
                     )
                     recovered = False
                 if recovered:
                     log.info(
                         "with_retry: prompt_too_long recovered via reactive compact "
                         "(attempt %d/%d)",
-                        attempt, max_attempts,
+                        attempt,
+                        max_attempts,
                     )
                     # Don't backoff here — compaction itself was an
                     # LLM call and ate latency; re-attempt immediately.
                     continue
                 # Hook declined to recover — non-retryable.
                 log.warning(
-                    "with_retry: prompt_too_long but reactive compact declined; "
-                    "surfacing error",
+                    "with_retry: prompt_too_long but reactive compact declined; surfacing error",
                 )
                 raise
 
@@ -282,13 +288,17 @@ async def with_retry(
                 if attempt >= max_attempts:
                     log.warning(
                         "with_retry: transient error on final attempt %d: %s",
-                        attempt, e,
+                        attempt,
+                        e,
                     )
                     break
                 sleep = _backoff_for_attempt(attempt, base_backoff_secs)
                 log.info(
                     "with_retry: transient error attempt %d/%d, backing off %.2fs: %s",
-                    attempt, max_attempts, sleep, e,
+                    attempt,
+                    max_attempts,
+                    sleep,
+                    e,
                 )
                 await asyncio.sleep(sleep)
                 continue
@@ -304,15 +314,21 @@ async def with_retry(
             # Anything else (auth, not-found, generic invalid-request) is
             # non-retryable. Surface immediately.
             log.warning(
-                "with_retry: non-retryable error attempt %d: %s", attempt, e,
+                "with_retry: non-retryable error attempt %d: %s",
+                attempt,
+                e,
             )
             raise
 
     # Loop exhausted on a transient class. Wrap and raise.
     raise MaxRetriesExceeded(
         f"LLM call failed after {max_attempts} attempts: {last_error}",
-        provider=getattr(last_error, "provider", "") if isinstance(last_error, ProviderError) else "",
-        status_code=getattr(last_error, "status_code", None) if isinstance(last_error, ProviderError) else None,
+        provider=getattr(last_error, "provider", "")
+        if isinstance(last_error, ProviderError)
+        else "",
+        status_code=getattr(last_error, "status_code", None)
+        if isinstance(last_error, ProviderError)
+        else None,
     ) from last_error
 
 

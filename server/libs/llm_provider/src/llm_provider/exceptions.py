@@ -75,7 +75,9 @@ class ProviderServerError(ProviderError):
 
 
 def classify_status_error(
-    status_code: int, message: str, provider: str,
+    status_code: int,
+    message: str,
+    provider: str,
 ) -> ProviderError:
     """Map an HTTP status code to the appropriate :class:`ProviderError` subclass.
 

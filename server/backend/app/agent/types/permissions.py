@@ -88,6 +88,7 @@ PermissionRuleSource = Literal[
 @dataclass(frozen=True)
 class PermissionRuleValue:
     """The value of a permission rule — specifies which tool and optional content."""
+
     toolName: str
     ruleContent: str | None = None
 
@@ -95,6 +96,7 @@ class PermissionRuleValue:
 @dataclass(frozen=True)
 class PermissionRule:
     """A permission rule with its source and behavior."""
+
     source: PermissionRuleSource
     ruleBehavior: PermissionBehavior
     ruleValue: PermissionRuleValue
@@ -188,6 +190,7 @@ class AdditionalWorkingDirectory:
 
 class PermissionCommandMetadata(TypedDict, total=False):
     """Minimal command shape for permission metadata."""
+
     name: str
     description: str
 
@@ -285,6 +288,7 @@ PermissionDecisionReason = (
 @dataclass(frozen=True)
 class PendingClassifierCheck:
     """Metadata for a pending classifier check that runs asynchronously."""
+
     command: str
     cwd: str
     descriptions: list[str]
@@ -293,6 +297,7 @@ class PendingClassifierCheck:
 @dataclass
 class PermissionAllowDecision:
     """Result when permission is granted."""
+
     behavior: Literal["allow"] = "allow"
     updatedInput: dict[str, Any] | None = None
     userModified: bool | None = None
@@ -305,6 +310,7 @@ class PermissionAllowDecision:
 @dataclass
 class PermissionAskDecision:
     """Result when user should be prompted."""
+
     behavior: Literal["ask"]
     message: str
     updatedInput: dict[str, Any] | None = None
@@ -320,22 +326,20 @@ class PermissionAskDecision:
 @dataclass
 class PermissionDenyDecision:
     """Result when permission is denied."""
+
     behavior: Literal["deny"]
     message: str
     decisionReason: PermissionDecisionReason
     toolUseID: str | None = None
 
 
-PermissionDecision = (
-    PermissionAllowDecision
-    | PermissionAskDecision
-    | PermissionDenyDecision
-)
+PermissionDecision = PermissionAllowDecision | PermissionAskDecision | PermissionDenyDecision
 
 
 @dataclass
 class PermissionPassthroughDecision:
     """Permission result with passthrough option."""
+
     behavior: Literal["passthrough"]
     message: str
     decisionReason: PermissionDecisionReason | None = None
@@ -428,8 +432,11 @@ class ToolPermissionContext:
     `frozen=True` mirrors the source's DeepImmutable. Mutations create new
     instances via dataclasses.replace().
     """
+
     mode: PermissionMode = "default"
-    additionalWorkingDirectories: dict[str, AdditionalWorkingDirectory] = field(default_factory=dict)
+    additionalWorkingDirectories: dict[str, AdditionalWorkingDirectory] = field(
+        default_factory=dict
+    )
     alwaysAllowRules: ToolPermissionRulesBySource = field(default_factory=dict)
     alwaysDenyRules: ToolPermissionRulesBySource = field(default_factory=dict)
     alwaysAskRules: ToolPermissionRulesBySource = field(default_factory=dict)

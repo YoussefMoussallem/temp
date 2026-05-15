@@ -94,15 +94,11 @@ class ExportDeckToolImpl(BaseTool[ExportDeckInput, ExportDeckOutput]):
 
     async def description(self, input: Any, options: dict) -> str:
         name = (
-            input.get("filename")
-            if isinstance(input, dict)
-            else getattr(input, "filename", None)
+            input.get("filename") if isinstance(input, dict) else getattr(input, "filename", None)
         )
         return f'Export deck to "{name}"' if name else "Export deck to PowerPoint"
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         if not context.project_id:
             return ValidationError(
                 message="No active project — cannot export without project context.",
@@ -152,17 +148,17 @@ class ExportDeckToolImpl(BaseTool[ExportDeckInput, ExportDeckOutput]):
             # `deck_export_ready` flows through router.py's catch-all SSE
             # forwarder; the frontend captures it in streamHandler.js and
             # builds the .pptx in the browser.
-            events=[{
-                "type": "deck_export_ready",
-                "filename": filename,
-                "slide_count": total,
-                "deck": deck_spec,
-            }],
+            events=[
+                {
+                    "type": "deck_export_ready",
+                    "filename": filename,
+                    "slide_count": total,
+                    "deck": deck_spec,
+                }
+            ],
         )
 
-    def map_tool_result_to_block(
-        self, content: ExportDeckOutput, tool_use_id: str
-    ) -> dict:
+    def map_tool_result_to_block(self, content: ExportDeckOutput, tool_use_id: str) -> dict:
         if content.slide_count == 0:
             text = (
                 "No slides to export — the deck is empty. "
@@ -221,9 +217,7 @@ async def _convert_slide_html(
         raise ValueError(f"LLM returned non-JSON spec: {e}") from e
 
     if not isinstance(spec, dict) or "elements" not in spec:
-        raise ValueError(
-            "LLM spec missing required 'elements' field"
-        )
+        raise ValueError("LLM spec missing required 'elements' field")
     return spec
 
 
@@ -250,8 +244,13 @@ def _fallback_spec(title: str, error_msg: str) -> dict:
                 "kind": "text",
                 "text": title,
                 "options": {
-                    "x": 0.5, "y": 0.5, "w": 12.33, "h": 1,
-                    "fontSize": 32, "bold": True, "color": "1B2A4A",
+                    "x": 0.5,
+                    "y": 0.5,
+                    "w": 12.33,
+                    "h": 1,
+                    "fontSize": 32,
+                    "bold": True,
+                    "color": "1B2A4A",
                     "fontFace": "Arial",
                 },
             },
@@ -259,8 +258,12 @@ def _fallback_spec(title: str, error_msg: str) -> dict:
                 "kind": "text",
                 "text": error_msg,
                 "options": {
-                    "x": 0.5, "y": 2, "w": 12.33, "h": 4,
-                    "fontSize": 16, "color": "9B1B30",
+                    "x": 0.5,
+                    "y": 2,
+                    "w": 12.33,
+                    "h": 4,
+                    "fontSize": 16,
+                    "color": "9B1B30",
                     "fontFace": "Arial",
                 },
             },
@@ -321,23 +324,24 @@ async def build_deck_spec(
     completed = {"n": 0}
 
     if on_progress is not None:
-        on_progress({
-            "message": f"Converting 0 / {total} slides...",
-            "current": 0,
-            "total": total,
-        })
+        on_progress(
+            {
+                "message": f"Converting 0 / {total} slides...",
+                "current": 0,
+                "total": total,
+            }
+        )
 
     async def convert_one(idx: int, slide: dict) -> dict:
         html = slide.get("html") or ""
         async with sem:
             try:
-                spec = await _convert_slide_html(
-                    adapter, ChatRequest, Message, model, html
-                )
+                spec = await _convert_slide_html(adapter, ChatRequest, Message, model, html)
             except Exception as e:  # noqa: BLE001
                 log.exception(
                     "ExportDeck: slide conversion failed (idx=%d, id=%s)",
-                    idx, slide.get("id"),
+                    idx,
+                    slide.get("id"),
                 )
                 spec = _fallback_spec(
                     slide.get("title") or f"Slide {idx + 1}",
@@ -346,11 +350,13 @@ async def build_deck_spec(
 
             completed["n"] += 1
             if on_progress is not None:
-                on_progress({
-                    "message": f"Converting {completed['n']} / {total} slides...",
-                    "current": completed["n"],
-                    "total": total,
-                })
+                on_progress(
+                    {
+                        "message": f"Converting {completed['n']} / {total} slides...",
+                        "current": completed["n"],
+                        "total": total,
+                    }
+                )
 
             return {
                 "id": slide.get("id"),
@@ -359,9 +365,7 @@ async def build_deck_spec(
                 "spec": spec,
             }
 
-    per_slide = await asyncio.gather(
-        *(convert_one(i, s) for i, s in enumerate(slides_sorted))
-    )
+    per_slide = await asyncio.gather(*(convert_one(i, s) for i, s in enumerate(slides_sorted)))
 
     if on_progress is not None:
         on_progress({"message": "Assembling .pptx...", "current": total, "total": total})

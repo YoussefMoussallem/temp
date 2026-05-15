@@ -25,9 +25,7 @@ async def add_member(
     return ProjectMember.from_record(row)
 
 
-async def get_member(
-    pool: Pool, project_id: UUID, user_id: str
-) -> ProjectMember | None:
+async def get_member(pool: Pool, project_id: UUID, user_id: str) -> ProjectMember | None:
     row = await pool.fetchrow(queries.GET, project_id, user_id)
     return ProjectMember.from_record(row) if row else None
 

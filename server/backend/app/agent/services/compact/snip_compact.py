@@ -11,9 +11,11 @@ that threading must be wired in 3.1 even though no actual snipping
 happens yet.
 
 Real algorithm (TBD) would project oversized tool_results down to a
-preview and an on-disk pointer (see ``utils.tool_result_storage`` for
-the analog). Source itself hasn't shipped that algorithm; we keep
-parity by leaving this as a documented stub.
+preview. Source itself hasn't shipped that algorithm; we keep parity
+by leaving this as a documented stub. (Source also ran an upstream
+``applyToolResultBudget`` disk-spill; Edwin's webapp deployment can't
+write to local disk reliably, so that stage was removed — see
+``query_loop.py`` for the rationale.)
 """
 
 from __future__ import annotations

@@ -26,14 +26,17 @@ async def _get_prompt(args: str, _ctx: Any) -> list[dict]:
     return [{"type": "text", "text": text}]
 
 
-plan: Command = cast(Command, {
-    "type": "prompt",
-    "execution": "server",
-    "name": "plan",
-    "description": "Enter plan mode for the next request",
-    "argument_hint": "[task]",
-    "source": "builtin",
-    "progress_message": "entering plan mode",
-    "content_length": 200,
-    "get_prompt_for_command": _get_prompt,
-})
+plan: Command = cast(
+    Command,
+    {
+        "type": "prompt",
+        "execution": "server",
+        "name": "plan",
+        "description": "Enter plan mode for the next request",
+        "argument_hint": "[task]",
+        "source": "builtin",
+        "progress_message": "entering plan mode",
+        "content_length": 200,
+        "get_prompt_for_command": _get_prompt,
+    },
+)

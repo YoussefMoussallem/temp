@@ -33,7 +33,10 @@ async def upsert_user(body: UpsertUserRequest):
     """Create or update a user."""
     pool: Pool = await get_pool()
     user = await get_or_create_user(
-        pool, azure_oid=body.azure_oid, email=body.email, display_name=body.display_name,
+        pool,
+        azure_oid=body.azure_oid,
+        email=body.email,
+        display_name=body.display_name,
     )
     return _serialize_user(user)
 

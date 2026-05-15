@@ -58,7 +58,6 @@ from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 Environment = Literal["development", "staging", "production"]
@@ -89,12 +88,14 @@ def _resolve_env_file() -> str | None:
 
 class AppSettings(BaseModel, frozen=True):
     """Top-level app identity and infrastructure dependencies."""
+
     name: str
     db_service_url: str
 
 
 class AzureADSettings(BaseModel, frozen=True):
     """Azure AD app registration IDs used for auth / admin endpoints."""
+
     client_id: str
     tenant_id: str
     admin_client_id: str
@@ -102,6 +103,7 @@ class AzureADSettings(BaseModel, frozen=True):
 
 class AISettings(BaseModel, frozen=True):
     """LLM provider config (OpenAI-compatible endpoint)."""
+
     api_key: SecretStr
     base_url: str
     default_model: str
@@ -112,6 +114,7 @@ class AISettings(BaseModel, frozen=True):
 
 class ObservabilitySettings(BaseModel, frozen=True):
     """Langfuse tracing. Disabled by default; secrets are optional in dev."""
+
     langfuse_enabled: bool
     langfuse_base_url: str
     langfuse_public_key: str
@@ -127,6 +130,7 @@ class LoggingSettings(BaseModel, frozen=True):
     entries or flush every ``azure_flush_interval_seconds``, whichever
     comes first.
     """
+
     level: LogLevel
     local_enabled: bool
     log_dir: str
@@ -147,6 +151,7 @@ class CompactionSettings(BaseModel, frozen=True):
     without recompiling. ``0`` means "use the code default" (160K
     autocompact, 70% of that for the warning).
     """
+
     auto_trigger_ratio: float = Field(ge=0.0, le=1.0)
     collapse_trigger_low: float = Field(ge=0.0, le=1.0)
     collapse_trigger_high: float = Field(ge=0.0, le=1.0)
@@ -169,6 +174,7 @@ class CompactionSettings(BaseModel, frozen=True):
 # ``extra="ignore"`` is intentional: the .env in dev may hold keys for
 # sibling services (db-service, etc.). Typos in *known* keys still fail
 # loudly because the matching field has no default to fall back to.
+
 
 class _EnvSettings(BaseSettings):
     """Flat view of every configurable value, sourced from env (+ .env in dev).
@@ -240,21 +246,16 @@ class _EnvSettings(BaseSettings):
 
         Production gets a stricter pass via ``_validate_production``.
         """
-        if self.langfuse_enabled and not (
-            self.langfuse_secret_key and self.langfuse_public_key
-        ):
+        if self.langfuse_enabled and not (self.langfuse_secret_key and self.langfuse_public_key):
             raise ValueError(
                 "langfuse_enabled=True requires LANGFUSE_SECRET_KEY and "
                 "LANGFUSE_PUBLIC_KEY to be set."
             )
         if self.log_azure_enabled and not self.log_azure_connection_string:
-            raise ValueError(
-                "log_azure_enabled=True requires LOG_AZURE_CONNECTION_STRING."
-            )
+            raise ValueError("log_azure_enabled=True requires LOG_AZURE_CONNECTION_STRING.")
         if self.compaction_collapse_trigger_high < self.compaction_collapse_trigger_low:
             raise ValueError(
-                "compaction_collapse_trigger_high must be >= "
-                "compaction_collapse_trigger_low."
+                "compaction_collapse_trigger_high must be >= compaction_collapse_trigger_low."
             )
         if self.edwin_environment == "production":
             self._validate_production()
@@ -278,17 +279,15 @@ class _EnvSettings(BaseSettings):
         if not self.azure_admin_client_id:
             missing.append("AZURE_ADMIN_CLIENT_ID")
         if self.db_service_url in ("", "http://localhost:8001"):
-            missing.append(
-                "DB_SERVICE_URL (must be explicit, not the localhost default)"
-            )
+            missing.append("DB_SERVICE_URL (must be explicit, not the localhost default)")
         if missing:
             raise ValueError(
-                "Production environment is missing required configuration: "
-                + ", ".join(missing)
+                "Production environment is missing required configuration: " + ", ".join(missing)
             )
 
 
 # ── Thread-safe singleton ─────────────────────────────────────────────
+
 
 class Settings:
     """Groups all configuration under typed, frozen sub-settings.
@@ -355,7 +354,7 @@ class Settings:
             autocompact_threshold_tokens=env.edwin_autocompact_threshold_tokens,
             warning_threshold_tokens=env.edwin_warning_threshold_tokens,
         )
-        
+
     @classmethod
     def get(cls) -> Settings:
         """Return the process-wide Settings, building it on first access.

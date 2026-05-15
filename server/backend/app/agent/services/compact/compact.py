@@ -207,13 +207,15 @@ async def _summarize(
     user_text = build_compact_user_message(transcript, manual=manual)
 
     # Wrap as a single user message in the loop's expected shape.
-    summarize_messages = [{
-        "type": "user",
-        "message": {
-            "role": "user",
-            "content": [{"type": "text", "text": user_text}],
-        },
-    }]
+    summarize_messages = [
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "text", "text": user_text}],
+            },
+        }
+    ]
 
     model = ""
     if ctx is not None:
@@ -279,14 +281,15 @@ def _synthesize_summary_message(summary: str) -> dict[str, Any]:
         "isCompactSummary": True,
         "message": {
             "role": "user",
-            "content": [{
-                "type": "text",
-                "text": (
-                    "[Prior conversation summarized for context. "
-                    "Treat this as authoritative history.]\n\n"
-                    + summary
-                ),
-            }],
+            "content": [
+                {
+                    "type": "text",
+                    "text": (
+                        "[Prior conversation summarized for context. "
+                        "Treat this as authoritative history.]\n\n" + summary
+                    ),
+                }
+            ],
         },
     }
 
@@ -359,7 +362,12 @@ async def compact_conversation(
 
     log.info(
         "compact_conversation manual=%s n_msgs=%d cut=%d to_summarize=%d kept=%d tokens_before=%d",
-        manual, n, cut, len(to_summarize), len(kept_tail), tokens_before,
+        manual,
+        n,
+        cut,
+        len(to_summarize),
+        len(kept_tail),
+        tokens_before,
     )
 
     summary = await _summarize(to_summarize, ctx, manual=manual)
@@ -369,7 +377,10 @@ async def compact_conversation(
     # ensures the pair-repair pass sees the FINAL kept set (the summary
     # message has no tool_use/tool_result blocks so it can't introduce
     # orphans).
-    from .post_compact_cleanup import post_compact_cleanup  # late import for cycle safety  # noqa: PLC0415
+    from .post_compact_cleanup import (
+        post_compact_cleanup,
+    )  # late import for cycle safety  # noqa: PLC0415
+
     cleaned_tail = post_compact_cleanup(kept_tail)
 
     new_messages: list[Any] = [summary_msg, *cleaned_tail]

@@ -43,6 +43,7 @@ CacheScope = Literal["global", "session"] | None
 @dataclass(frozen=True)
 class SystemPromptBlock:
     """A contiguous chunk of system-prompt text with a caching hint."""
+
     text: str
     cache_scope: CacheScope
 
@@ -52,10 +53,7 @@ def _join(items: list[str]) -> str:
     any leftover boundary markers (defensive — boundary should already be
     excluded by the caller's slice).
     """
-    return "\n\n".join(
-        s for s in items
-        if s and s != SYSTEM_PROMPT_DYNAMIC_BOUNDARY
-    )
+    return "\n\n".join(s for s in items if s and s != SYSTEM_PROMPT_DYNAMIC_BOUNDARY)
 
 
 def split_sys_prompt_prefix(
@@ -101,7 +99,7 @@ def split_sys_prompt_prefix(
             ),
         )
 
-    tail_text = _join(system_prompt[boundary_idx + 1:])
+    tail_text = _join(system_prompt[boundary_idx + 1 :])
     if tail_text:
         blocks.append(SystemPromptBlock(text=tail_text, cache_scope="session"))
 
@@ -127,6 +125,4 @@ def build_system_prompt_string(system_prompt: list[str]) -> str:
     consistently — when a future adapter supports per-block caching the
     same call site can return :class:`SystemPromptBlock` lists instead.
     """
-    return "\n\n".join(
-        block.text for block in split_sys_prompt_prefix(system_prompt)
-    )
+    return "\n\n".join(block.text for block in split_sys_prompt_prefix(system_prompt))

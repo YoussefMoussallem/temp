@@ -14,10 +14,11 @@ venv/
 .venv/
 env/
 
-# Environment variables
+# Environment variables (templates like **/.env.example stay tracked)
 .env
-.env.dev
-.env.prod
+.env.*
+!**/.env.example
+!**/.env.*.example
 # IDE
 .vscode/
 .idea/
@@ -42,8 +43,14 @@ htmlcov/
 
 # Node (if frontend added later)
 node_modules/
-**.pem
-**.pem
+
+# Crypto / secrets / local corp CA bundles (never commit)
+*.pem
+*.key
+*.p12
+*.pfx
+*-service-account.json
+google-credentials.json
 
 # Template folder
 template/
@@ -61,3 +68,9 @@ server/backend/mcp_servers.yaml
 
 # documentation
 docs/
+
+# Local planning / IDE agent state / Ruff cache (never commit)
+/chat-loop-refactor-plan.md
+/agent-loop-architecture.md
+/.claude/
+/.ruff_cache/

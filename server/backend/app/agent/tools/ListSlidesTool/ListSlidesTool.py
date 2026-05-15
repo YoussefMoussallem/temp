@@ -49,9 +49,7 @@ class ListSlidesToolImpl(BaseTool[ListSlidesInput, str]):
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
         if not context.project_id:
             return ValidationError(
                 message="No active project — cannot list slides without project context.",
@@ -75,9 +73,7 @@ class ListSlidesToolImpl(BaseTool[ListSlidesInput, str]):
         parsed: ListSlidesInput = (
             args if isinstance(args, ListSlidesInput) else ListSlidesInput(**args)
         )
-        slides = await db_client.list_slides(
-            context.authorization or "", context.project_id or ""
-        )
+        slides = await db_client.list_slides(context.authorization or "", context.project_id or "")
         summary = [
             {
                 "id": s["id"],

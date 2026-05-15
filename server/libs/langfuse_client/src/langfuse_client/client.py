@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from langfuse import Langfuse
 from langfuse import get_client as _get_client
-import httpx 
-import httpx 
+import httpx
+
 __all__ = ["init_client", "get_client"]
 
 

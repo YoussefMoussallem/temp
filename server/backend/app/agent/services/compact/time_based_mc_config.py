@@ -39,6 +39,7 @@ class TimeBasedMCConfig:
     lands and the heavy passes have real cost, the defaults shift to
     "medium aggressiveness" with a 30s debounce.
     """
+
     enabled: bool = True
     aggressiveness: Aggressiveness = "high"
     # Minimum seconds between successive heavy-pass runs. 0 = no debounce.

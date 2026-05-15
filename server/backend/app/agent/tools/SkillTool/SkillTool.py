@@ -119,22 +119,14 @@ class SkillToolImpl(BaseTool[SkillToolInput, SkillToolOutput]):
         return DESCRIPTION
 
     async def description(self, input: Any, options: dict) -> str:
-        name = (
-            input.get("name", "") if isinstance(input, dict)
-            else getattr(input, "name", "")
-        )
+        name = input.get("name", "") if isinstance(input, dict) else getattr(input, "name", "")
         return f"Invoke skill /{name}" if name else "Invoke a skill"
 
     def user_facing_name(self, input: Any = None) -> str:
         return "Skill"
 
-    async def validate_input(
-        self, input: Any, context: ToolUseContext
-    ) -> ValidationResult:
-        name = (
-            input.get("name", "") if isinstance(input, dict)
-            else getattr(input, "name", "")
-        )
+    async def validate_input(self, input: Any, context: ToolUseContext) -> ValidationResult:
+        name = input.get("name", "") if isinstance(input, dict) else getattr(input, "name", "")
         if not name or not str(name).strip():
             return ValidationError(
                 message="`name` is required (e.g. 'outline-deck').",
@@ -176,13 +168,10 @@ class SkillToolImpl(BaseTool[SkillToolInput, SkillToolOutput]):
         skill = find_command(parsed.name, skills)
 
         if skill is None:
-            available = ", ".join(
-                f"/{s.get('name')}" for s in skills if not s.get("is_hidden")
-            ) or "(none)"
-            raise ValueError(
-                f"Skill /{parsed.name} not found. "
-                f"Available skills: {available}."
+            available = (
+                ", ".join(f"/{s.get('name')}" for s in skills if not s.get("is_hidden")) or "(none)"
             )
+            raise ValueError(f"Skill /{parsed.name} not found. Available skills: {available}.")
 
         # Security: skills with disable_model_invocation are user-only.
         # The model must not be able to escalate by guessing the name.
@@ -206,8 +195,7 @@ class SkillToolImpl(BaseTool[SkillToolInput, SkillToolOutput]):
         get_prompt = skill.get("get_prompt_for_command")
         if not callable(get_prompt):
             raise RuntimeError(
-                f"Skill /{parsed.name} is malformed "
-                f"(missing get_prompt_for_command)."
+                f"Skill /{parsed.name} is malformed (missing get_prompt_for_command)."
             )
 
         # Let exceptions from get_prompt propagate — they carry useful
@@ -221,9 +209,7 @@ class SkillToolImpl(BaseTool[SkillToolInput, SkillToolOutput]):
             if isinstance(b, dict) and b.get("type") == "text"
         )
         if not body.strip():
-            raise RuntimeError(
-                f"Skill /{parsed.name} expanded to empty body."
-            )
+            raise RuntimeError(f"Skill /{parsed.name} expanded to empty body.")
 
         canonical_name = skill.get("name") or parsed.name
         return ToolResult(
@@ -234,9 +220,7 @@ class SkillToolImpl(BaseTool[SkillToolInput, SkillToolOutput]):
             ),
         )
 
-    def map_tool_result_to_block(
-        self, content: SkillToolOutput, tool_use_id: str
-    ) -> dict:
+    def map_tool_result_to_block(self, content: SkillToolOutput, tool_use_id: str) -> dict:
         # The model needs three things in the result text: which skill
         # ran, what args it received, and the instructions to follow.
         # Wrap explicitly so the model can disambiguate skill output from

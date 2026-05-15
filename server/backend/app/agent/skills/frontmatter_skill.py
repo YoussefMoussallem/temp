@@ -63,9 +63,7 @@ def _split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
 
     parsed = yaml.safe_load(raw_fm) or {}
     if not isinstance(parsed, dict):
-        raise ValueError(
-            f"frontmatter must parse to a mapping, got {type(parsed).__name__}"
-        )
+        raise ValueError(f"frontmatter must parse to a mapping, got {type(parsed).__name__}")
     return parsed, body
 
 
@@ -112,9 +110,7 @@ def parse_skill_file(
     name = fm.get("name")
     description = fm.get("description")
     if not name or not description:
-        raise ValueError(
-            f"SKILL.md at {skill_md_path} missing required name/description"
-        )
+        raise ValueError(f"SKILL.md at {skill_md_path} missing required name/description")
 
     skill_dir = str(skill_md_path.parent.resolve())
 
@@ -127,12 +123,8 @@ def parse_skill_file(
     # Coerce string-ish frontmatter fields. Authors sometimes write
     # ``argumentHint: [foo | bar]`` which YAML parses as a flow list —
     # render-time string ops blow up. Stringify defensively.
-    argument_hint = _ensure_str(
-        fm.get("argumentHint") or fm.get("argument_hint") or ""
-    )
-    when_to_use = _ensure_str(
-        fm.get("whenToUse") or fm.get("when_to_use") or ""
-    )
+    argument_hint = _ensure_str(fm.get("argumentHint") or fm.get("argument_hint") or "")
+    when_to_use = _ensure_str(fm.get("whenToUse") or fm.get("when_to_use") or "")
     is_hidden = bool(fm.get("isHidden") or fm.get("is_hidden") or False)
     model_override = fm.get("model")
     arg_names = fm.get("argNames") or fm.get("arg_names") or []

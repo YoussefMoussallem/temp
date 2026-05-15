@@ -41,16 +41,19 @@ class DeleteMemoryToolImpl(BaseTool[DeleteMemoryInput, str]):
 
     def is_concurrency_safe(self, input: Any = None) -> bool:
         # Single-row delete — concurrent calls on different slugs are
-        # safe, but concurrent calls on the same slug are a no-op race
-        # we'd rather have surface deterministically. Mark unsafe so
-        # the loop runs deletes serially.
-        return False
+        # independent. Same-slug parallel deletes race into a benign
+        # no-op (one DELETE succeeds, the second matches no rows).
+        # Marking safe lets the loop run a burst of cleanups in
+        # parallel when the model emits them in one batch.
+        return True
 
     async def prompt(self, options: dict[str, Any]) -> str:
         return DESCRIPTION
 
     async def validate_input(
-        self, input: Any, context: ToolUseContext,
+        self,
+        input: Any,
+        context: ToolUseContext,
     ) -> ValidationResult:
         scope = input.get("scope") if isinstance(input, dict) else getattr(input, "scope", None)
         if scope == "user" and not context.user_id:
@@ -60,10 +63,7 @@ class DeleteMemoryToolImpl(BaseTool[DeleteMemoryInput, str]):
             )
         if scope == "project" and not context.project_id:
             return ValidationError(
-                message=(
-                    "No active project on context — cannot delete project "
-                    "memory."
-                ),
+                message=("No active project on context — cannot delete project memory."),
                 errorCode=2,
             )
         if not context.authorization:
@@ -101,9 +101,7 @@ class DeleteMemoryToolImpl(BaseTool[DeleteMemoryInput, str]):
         # 204 from db-service is idempotent — the delete returns the
         # same shape whether the row existed or not. That's deliberate;
         # the model gets a clean "it's gone now" signal in either case.
-        return ToolResult(
-            data=f"Deleted [{parsed.scope}:{parsed.slug}]."
-        )
+        return ToolResult(data=f"Deleted [{parsed.scope}:{parsed.slug}].")
 
 
 DeleteMemoryTool = DeleteMemoryToolImpl()

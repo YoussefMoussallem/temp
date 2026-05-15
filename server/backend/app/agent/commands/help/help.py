@@ -41,12 +41,15 @@ async def _load():
     return import_module(__name__)
 
 
-help: Command = cast(Command, {
-    "type": "local",
-    "execution": "server",
-    "name": "help",
-    "description": "Show help and list available commands",
-    "aliases": ["?"],
-    "supports_non_interactive": True,
-    "load": _load,
-})
+help: Command = cast(
+    Command,
+    {
+        "type": "local",
+        "execution": "server",
+        "name": "help",
+        "description": "Show help and list available commands",
+        "aliases": ["?"],
+        "supports_non_interactive": True,
+        "load": _load,
+    },
+)

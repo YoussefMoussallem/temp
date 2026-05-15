@@ -66,9 +66,7 @@ async def call(_args: str, ctx: Any) -> dict:
             inp = int(t.get("total_input_tokens") or 0)
             outp = int(t.get("total_output_tokens") or 0)
             reqs = int(t.get("record_count") or 0)
-            lines.append(
-                f"  {model}: ${cost_v:.4f}, {inp + outp:,} tokens, {reqs} requests"
-            )
+            lines.append(f"  {model}: ${cost_v:.4f}, {inp + outp:,} tokens, {reqs} requests")
     if email:
         lines.append("")
         lines.append(f"Account: {email}")
@@ -80,12 +78,15 @@ async def _load():
     return import_module(__name__)
 
 
-cost: Command = cast(Command, {
-    "type": "local",
-    "execution": "server",
-    "name": "cost",
-    "description": "Show your usage and cost",
-    "aliases": [],
-    "supports_non_interactive": True,
-    "load": _load,
-})
+cost: Command = cast(
+    Command,
+    {
+        "type": "local",
+        "execution": "server",
+        "name": "cost",
+        "description": "Show your usage and cost",
+        "aliases": [],
+        "supports_non_interactive": True,
+        "load": _load,
+    },
+)

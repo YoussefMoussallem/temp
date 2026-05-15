@@ -51,6 +51,7 @@ class SystemPromptSection:
     memoized — used by :func:`DANGEROUS_uncached_system_prompt_section`.
     Frozen so callers can't accidentally toggle caching mid-resolution.
     """
+
     name: str
     compute: ComputeFn
     cache_break: bool = False
@@ -82,7 +83,10 @@ def DANGEROUS_uncached_system_prompt_section(  # noqa: N802 — name mirrors sou
             "explaining why caching is unsafe for this section.",
         )
     return SystemPromptSection(
-        name=name, compute=compute, cache_break=True, reason=reason,
+        name=name,
+        compute=compute,
+        cache_break=True,
+        reason=reason,
     )
 
 
@@ -95,8 +99,7 @@ async def _invoke(compute: ComputeFn) -> str | None:
         return None
     if not isinstance(out, str):
         raise TypeError(
-            f"system-prompt section compute returned {type(out).__name__}, "
-            "expected str | None",
+            f"system-prompt section compute returned {type(out).__name__}, expected str | None",
         )
     return out
 

@@ -12,6 +12,7 @@ Revision ID: 0006
 Revises: 0005
 Create Date: 2026-04-29
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -24,8 +25,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.execute(
-        "ALTER TABLE conversations "
-        "ADD COLUMN total_cost_usd NUMERIC(12, 8) NOT NULL DEFAULT 0"
+        "ALTER TABLE conversations ADD COLUMN total_cost_usd NUMERIC(12, 8) NOT NULL DEFAULT 0"
     )
 
 

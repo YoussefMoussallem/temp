@@ -28,9 +28,7 @@ async def append_message(
     async with pool.acquire() as conn:
         async with conn.transaction():
             sequence = await conn.fetchval(queries.NEXT_SEQUENCE, conversation_id)
-            row = await conn.fetchrow(
-                queries.INSERT, conversation_id, sequence, role, content_json
-            )
+            row = await conn.fetchrow(queries.INSERT, conversation_id, sequence, role, content_json)
             await conn.execute(queries.BUMP_CONVERSATION, conversation_id)
     return Message.from_record(row)
 
@@ -53,9 +51,7 @@ async def list_messages(
         rows = await pool.fetch(queries.LIST_BY_CONVERSATION, conversation_id)
         return [Message.from_record(r) for r in rows]
 
-    rows = await pool.fetch(
-        queries.LIST_BEFORE_SEQUENCE, conversation_id, before_sequence, limit
-    )
+    rows = await pool.fetch(queries.LIST_BEFORE_SEQUENCE, conversation_id, before_sequence, limit)
     # DESC in SQL for LIMIT, reverse here so callers see ascending order.
     return [Message.from_record(r) for r in reversed(rows)]
 

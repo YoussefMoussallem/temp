@@ -152,7 +152,8 @@ async def structure_memory_text(
         thinking=False,
     )
     raw = await adapter.generate(
-        request, _build_system_prompt(scope, existing_index),
+        request,
+        _build_system_prompt(scope, existing_index),
     )
 
     cleaned = _strip_fences(raw)
@@ -160,7 +161,8 @@ async def structure_memory_text(
         result = json.loads(cleaned)
     except json.JSONDecodeError as e:
         log.warning(
-            "memory structuring: LLM returned non-JSON; raw=%r", raw[:300],
+            "memory structuring: LLM returned non-JSON; raw=%r",
+            raw[:300],
         )
         raise ValueError(f"LLM returned non-JSON: {e}") from e
 
@@ -191,8 +193,10 @@ async def structure_memory_text(
         # Defensive fallback — the model occasionally invents tags. Map
         # to the most permissive one in scope rather than rejecting.
         log.warning(
-            "memory structuring: LLM produced invalid type=%r for scope=%s; "
-            "coercing to %r", type_, scope, valid_types[0],
+            "memory structuring: LLM produced invalid type=%r for scope=%s; coercing to %r",
+            type_,
+            scope,
+            valid_types[0],
         )
         type_ = valid_types[0]
 

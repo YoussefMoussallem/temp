@@ -44,12 +44,15 @@ async def _load():
     return import_module(__name__)
 
 
-skills: Command = cast(Command, {
-    "type": "local",
-    "execution": "server",
-    "name": "skills",
-    "description": "List available skills",
-    "aliases": [],
-    "supports_non_interactive": True,
-    "load": _load,
-})
+skills: Command = cast(
+    Command,
+    {
+        "type": "local",
+        "execution": "server",
+        "name": "skills",
+        "description": "List available skills",
+        "aliases": [],
+        "supports_non_interactive": True,
+        "load": _load,
+    },
+)

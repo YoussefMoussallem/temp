@@ -155,9 +155,7 @@ async def patch(
 ):
     pool: Pool = await get_pool()
     await require_project_access(pool, project_id, user, min_role="editor")
-    project = await update_project(
-        pool, project_id, name=body.name, description=body.description
-    )
+    project = await update_project(pool, project_id, name=body.name, description=body.description)
     # Name/description appear in every member's cached list — fan out.
     await _invalidate_for_all_members(pool, project_id)
     return _serialize(project)
@@ -281,9 +279,7 @@ async def delete_project_member(
     whole project.
     """
     pool: Pool = await get_pool()
-    caller_role = await require_project_access(
-        pool, project_id, user, min_role="viewer"
-    )
+    caller_role = await require_project_access(pool, project_id, user, min_role="viewer")
 
     is_self = member_user_id == user.azure_oid
     is_owner = role_meets(caller_role, min_role="owner")

@@ -61,7 +61,9 @@ def load_skills_dir(root: Path | str | None, *, source: str = "bundled") -> list
             cmd = parse_skill_file(skill_md, source=source)
         except Exception as e:  # noqa: BLE001
             log.warning(
-                "Skipping malformed SKILL.md at %s: %s", skill_md, e,
+                "Skipping malformed SKILL.md at %s: %s",
+                skill_md,
+                e,
             )
             continue
         skills.append(cmd)

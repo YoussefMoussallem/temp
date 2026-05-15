@@ -28,7 +28,7 @@ _PREAMBLE = (
     "These named skills are reusable prompt templates registered with "
     "the agent. Invoke a skill when one matches the user's intent by "
     "calling the `Skill` tool with `{name, args}` — e.g. "
-    "`Skill({name: \"outline-deck\", args: \"AI agents for architects\"})`. "
+    '`Skill({name: "outline-deck", args: "AI agents for architects"})`. '
     "The tool returns the skill's instruction template; follow those "
     "instructions in your next response. Prefer invoking a relevant "
     "skill over re-deriving its behavior from scratch. Do not re-invoke "
@@ -83,9 +83,7 @@ def render_skills_inventory(
     footer so the model knows the list is incomplete.
     """
     visible = [
-        s for s in skills
-        if not s.get("is_hidden")
-        and not s.get("disable_model_invocation")
+        s for s in skills if not s.get("is_hidden") and not s.get("disable_model_invocation")
     ]
     if not visible:
         return ""

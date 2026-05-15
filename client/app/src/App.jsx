@@ -13,6 +13,8 @@ import { primeRegistry } from "./commands/index.js";
 import { setAuthInvalidator } from "./auth/invalidation.js";
 import ErrorBanner from "./components/common/ErrorBanner";
 import MemoryPage from "./screens/MemoryPage";
+import MastersPage from "./screens/MastersPage";
+import MasterDetailPage from "./screens/MasterDetailPage";
 
 const LS_ACTIVE_PROJECT = "edwin.active_project_id";
 const LS_ACTIVE_CONV = "edwin.active_conversation_id";
@@ -72,6 +74,23 @@ export default function App() {
   const openUserMemory = () => setMemoryView("user");
   const openProjectMemory = () => setMemoryView("project");
   const closeMemory = () => setMemoryView(null);
+
+  // Master Manager — separate full-screen surface like memory pages.
+  // Two surfaces: the list (mastersOpen) and the per-master curation
+  // detail (mastersDetailId). Detail wins when both are set so the
+  // user only sees one screen at a time.
+  const [mastersOpen, setMastersOpen] = useState(false);
+  const [mastersDetailId, setMastersDetailId] = useState(null);
+  const openMasters = () => {
+    setMastersOpen(true);
+    setMastersDetailId(null);
+  };
+  const closeMasters = () => {
+    setMastersOpen(false);
+    setMastersDetailId(null);
+  };
+  const openMasterDetail = (id) => setMastersDetailId(id);
+  const closeMasterDetail = () => setMastersDetailId(null);
 
   // Fetch the backend command registry once on boot. Populates the typeahead
   // with server-only commands (theme, export, mcp, …) that the frontend
@@ -141,6 +160,42 @@ export default function App() {
     );
   }
 
+  // Masters surfaces — full-screen, only meaningful when a project is
+  // active. Detail wins when both states are set so we never stack
+  // the two screens. Cleared when the user backs out of a project.
+  if (mastersOpen && mastersDetailId && activeProjectId) {
+    const activeProjectForDetail = projects.projects.find((p) => p.id === activeProjectId);
+    return (
+      <>
+        <ErrorBanner />
+        <MasterDetailPage
+          masterId={mastersDetailId}
+          projectName={activeProjectForDetail?.name ?? null}
+          onBack={closeMasterDetail}
+          onDeleted={closeMasterDetail}
+          getToken={getToken}
+          onOpenUserMemory={openUserMemory}
+        />
+      </>
+    );
+  }
+  if (mastersOpen && activeProjectId) {
+    const activeProjectForMasters = projects.projects.find((p) => p.id === activeProjectId);
+    return (
+      <>
+        <ErrorBanner />
+        <MastersPage
+          projectId={activeProjectId}
+          projectName={activeProjectForMasters?.name ?? null}
+          onBack={closeMasters}
+          onOpenMaster={openMasterDetail}
+          getToken={getToken}
+          onOpenUserMemory={openUserMemory}
+        />
+      </>
+    );
+  }
+
   if (!activeProjectId) {
     return (
       <>
@@ -184,6 +239,7 @@ export default function App() {
           toggleSlides={toggleSlides}
           onOpenUserMemory={openUserMemory}
           onOpenProjectMemory={openProjectMemory}
+          onOpenMasters={openMasters}
         />
       </ChatProvider>
     </DeckProvider>

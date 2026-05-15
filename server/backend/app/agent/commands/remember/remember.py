@@ -28,14 +28,17 @@ async def _load():
     return import_module(__name__)
 
 
-remember: Command = cast(Command, {
-    "type": "local",
-    "execution": "server",
-    "name": "remember",
-    "description": "Save a memory for later (coming soon)",
-    "argument_hint": "[text to remember]",
-    "aliases": [],
-    "supports_non_interactive": True,
-    "is_hidden": True,
-    "load": _load,
-})
+remember: Command = cast(
+    Command,
+    {
+        "type": "local",
+        "execution": "server",
+        "name": "remember",
+        "description": "Save a memory for later (coming soon)",
+        "argument_hint": "[text to remember]",
+        "aliases": [],
+        "supports_non_interactive": True,
+        "is_hidden": True,
+        "load": _load,
+    },
+)

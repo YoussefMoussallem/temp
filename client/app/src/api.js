@@ -346,7 +346,11 @@ export async function deleteSlide(token, slideId) {
     method: "DELETE",
     headers: authHeaders(token),
   });
-  return checked(res);
+  // Backend renumbers the remaining slides inside the delete transaction
+  // and returns the new ordered list (same shape as `reorderSlide`).
+  // Callers use it to dispatch SLIDES_REPLACED on the deck reducer.
+  const body = await checked(res);
+  return body?.slides || [];
 }
 
 export async function reorderSlide(token, slideId, { afterSlideId = null } = {}) {

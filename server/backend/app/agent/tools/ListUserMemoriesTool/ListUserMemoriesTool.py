@@ -22,6 +22,7 @@ from .prompt import DESCRIPTION, LIST_USER_MEMORIES_TOOL_NAME
 
 class ListUserMemoriesInput(BaseModel):
     """No arguments — caller's identity comes from request context."""
+
     pass
 
 
@@ -41,7 +42,9 @@ class ListUserMemoriesToolImpl(BaseTool[ListUserMemoriesInput, str]):
         return DESCRIPTION
 
     async def validate_input(
-        self, input: Any, context: ToolUseContext,
+        self,
+        input: Any,
+        context: ToolUseContext,
     ) -> ValidationResult:
         if not context.user_id:
             return ValidationError(
@@ -83,15 +86,13 @@ class ListUserMemoriesToolImpl(BaseTool[ListUserMemoriesInput, str]):
             "",
             (
                 "Long-term facts saved about this user, available across "
-                "all conversations. Use ReadMemory(scope=\"user\", "
+                'all conversations. Use ReadMemory(scope="user", '
                 "slug=...) to fetch a specific entry's body."
             ),
             "",
         ]
         for r in rows:
-            lines.append(
-                f"- [{r['slug']}] ({r['type']}) {r['name']} — {r['description']}"
-            )
+            lines.append(f"- [{r['slug']}] ({r['type']}) {r['name']} — {r['description']}")
         return ToolResult(data="\n".join(lines))
 
 

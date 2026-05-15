@@ -31,9 +31,7 @@ def role_meets(role: str, *, min_role: str) -> bool:
     return ROLE_RANK.get(role, -1) >= ROLE_RANK[min_role]
 
 
-async def get_project_access(
-    pool: Pool, project_id: UUID, user_id: str
-) -> str | None:
+async def get_project_access(pool: Pool, project_id: UUID, user_id: str) -> str | None:
     """Return the caller's role on the project, or None if no membership."""
     return await get_role(pool, project_id, user_id)
 

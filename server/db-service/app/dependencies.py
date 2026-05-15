@@ -32,8 +32,13 @@ _jwks_lock = threading.Lock()
 
 
 def _jwks_ssl_context() -> ssl.SSLContext:
-    """Use a CA bundle that works with local Python installs behind TLS inspection."""
-    cafile = os.getenv("AZURE_CACERT_PATH") or os.getenv("SSL_CERT_FILE") or certifi.where()
+    """Use a CA bundle that works behind TLS inspection (do not commit PEMs)."""
+    cafile = (
+        os.getenv("SSL_CERT_FILE")
+        or os.getenv("REQUESTS_CA_BUNDLE")
+        or os.getenv("AZURE_CACERT_PATH")
+        or certifi.where()
+    )
     return ssl.create_default_context(cafile=cafile)
 
 
@@ -42,10 +47,7 @@ def _get_jwks_client(tenant_id: str) -> jwt.PyJWKClient:
     if _jwks_client is None:
         with _jwks_lock:
             if _jwks_client is None:
-                jwks_url = (
-                    f"https://login.microsoftonline.com/{tenant_id}"
-                    "/discovery/v2.0/keys"
-                )
+                jwks_url = f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys"
                 _jwks_client = jwt.PyJWKClient(
                     jwks_url,
                     cache_keys=True,

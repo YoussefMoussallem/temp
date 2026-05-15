@@ -62,9 +62,7 @@ async def _require_conversation_access(
     conversation = await get_conversation(pool, conversation_id)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    await require_project_access(
-        pool, conversation.project_id, user, min_role=min_role
-    )
+    await require_project_access(pool, conversation.project_id, user, min_role=min_role)
     return conversation
 
 
@@ -76,9 +74,7 @@ async def get_messages(
     user: CurrentUser = Depends(get_current_user),
 ):
     pool: Pool = await get_pool()
-    await _require_conversation_access(
-        pool, conversation_id, user, min_role="viewer"
-    )
+    await _require_conversation_access(pool, conversation_id, user, min_role="viewer")
 
     # Only cache full-history reads; paginated reads are rare and small enough.
     if before_sequence is None:

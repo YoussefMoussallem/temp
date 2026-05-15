@@ -59,6 +59,7 @@ class McpClient:
                 read, write = await stack.enter_async_context(stdio_client(params))
             elif isinstance(self.cfg, HttpServerConfig):
                 from mcp.client.streamable_http import streamablehttp_client
+
                 # streamablehttp_client yields (read, write, session_id_cb)
                 triple = await stack.enter_async_context(
                     streamablehttp_client(self.cfg.url, headers=self.cfg.headers or None)
@@ -112,12 +113,14 @@ class McpClient:
         result = await self._session.list_tools()
         out: list[dict[str, Any]] = []
         for t in getattr(result, "tools", []) or []:
-            out.append({
-                "name": getattr(t, "name", ""),
-                "description": getattr(t, "description", "") or "",
-                "inputSchema": getattr(t, "inputSchema", None) or {"type": "object"},
-                "annotations": _annotations_to_dict(getattr(t, "annotations", None)),
-            })
+            out.append(
+                {
+                    "name": getattr(t, "name", ""),
+                    "description": getattr(t, "description", "") or "",
+                    "inputSchema": getattr(t, "inputSchema", None) or {"type": "object"},
+                    "annotations": _annotations_to_dict(getattr(t, "annotations", None)),
+                }
+            )
         return out
 
     async def list_resources(self) -> list[dict[str, Any]]:
@@ -125,12 +128,14 @@ class McpClient:
         result = await self._session.list_resources()
         out: list[dict[str, Any]] = []
         for r in getattr(result, "resources", []) or []:
-            out.append({
-                "uri": str(getattr(r, "uri", "")),
-                "name": getattr(r, "name", "") or "",
-                "description": getattr(r, "description", "") or "",
-                "mimeType": getattr(r, "mimeType", None),
-            })
+            out.append(
+                {
+                    "uri": str(getattr(r, "uri", "")),
+                    "name": getattr(r, "name", "") or "",
+                    "description": getattr(r, "description", "") or "",
+                    "mimeType": getattr(r, "mimeType", None),
+                }
+            )
         return out
 
     async def call_tool(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -151,11 +156,13 @@ class McpClient:
                 text_chunks.append(getattr(block, "text", ""))
                 raw_blocks.append({"type": "text", "text": getattr(block, "text", "")})
             elif btype == "image":
-                raw_blocks.append({
-                    "type": "image",
-                    "mimeType": getattr(block, "mimeType", None),
-                    "data": getattr(block, "data", ""),
-                })
+                raw_blocks.append(
+                    {
+                        "type": "image",
+                        "mimeType": getattr(block, "mimeType", None),
+                        "data": getattr(block, "data", ""),
+                    }
+                )
             else:
                 # Unknown block type — preserve what we can.
                 raw_blocks.append({"type": btype or "unknown", "repr": repr(block)})

@@ -58,7 +58,10 @@ async def record_usage(body: RecordUsageRequest):
     """Record one usage entry. Called by consuming services."""
     pool: Pool = await get_pool()
     db_user = await get_or_create_user(
-        pool, azure_oid=body.user_id, email=body.email, display_name=body.display_name,
+        pool,
+        azure_oid=body.user_id,
+        email=body.email,
+        display_name=body.display_name,
     )
     record = await db_record_usage(
         pool,
@@ -83,15 +86,23 @@ async def my_usage(
     period_end = end or _default_end()
 
     db_user = await get_or_create_user(
-        pool, azure_oid=user.azure_oid or user.user_id,
-        email=user.email, display_name=user.display_name,
+        pool,
+        azure_oid=user.azure_oid or user.user_id,
+        email=user.email,
+        display_name=user.display_name,
     )
 
     records = await get_for_user(
-        pool, user_id=db_user.azure_oid, start=period_start, end=period_end,
+        pool,
+        user_id=db_user.azure_oid,
+        start=period_start,
+        end=period_end,
     )
     totals = await get_totals_for_user(
-        pool, user_id=db_user.azure_oid, start=period_start, end=period_end,
+        pool,
+        user_id=db_user.azure_oid,
+        start=period_start,
+        end=period_end,
     )
 
     return {
