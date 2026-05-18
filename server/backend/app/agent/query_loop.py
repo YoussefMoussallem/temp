@@ -41,6 +41,7 @@ between calls. QueryEngine.py wraps query() per /turn request.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, AsyncGenerator
 
@@ -324,11 +325,21 @@ async def _execute_single_tool(
                     {"type": "tool_progress", "tool_use_id": tool_use_id, "data": data}
                 )
 
+            # Phase 6.B.1.7: thread tool_use_id onto a per-call context so
+            # tools that need to identify themselves (AgentTool's resume
+            # lookup against ClientState.pending_subagents AND the
+            # _emit_agent_progress_for_message early-return guard that
+            # skips emission when tool_use_id is empty) see the right
+            # value. dataclasses.replace produces a per-call snapshot —
+            # client_state / authorization / agentDefinitions are shared
+            # references so any mutation still round-trips correctly.
+            per_call_ctx = dataclasses.replace(ctx, toolUseId=tool_use_id)
+
             async def _run_call() -> Any:
                 try:
                     return await tool.call(
                         tool_input,
-                        ctx,
+                        per_call_ctx,
                         can_use_tool,
                         parent_message=parent_message,
                         on_progress=on_progress,
