@@ -66,7 +66,6 @@ from pydantic import BaseModel, Field
 
 from ...Tool import (
     BaseTool,
-    ToolProgress,
     ToolResult,
     Tools,
     ToolUseContext,
@@ -406,17 +405,18 @@ class SkillToolImpl(BaseTool[SkillToolInput, SkillToolOutput]):
 
         # Initial kickoff progress emit so chat-ui captures the fork's
         # task line in the activity stream BEFORE the iterator starts.
+        # Plain dict — query_loop's on_progress wraps it as the SSE
+        # event's ``data`` field; wrapping in ToolProgress here would
+        # nest the payload one level deep and the frontend's
+        # `progress.type === "agent_progress"` check would miss.
         if on_progress is not None and my_tool_use_id:
             try:
-                on_progress(ToolProgress(
-                    toolUseID=my_tool_use_id,
-                    data={
-                        "type": "agent_progress",
-                        "message": prompt_messages[0],
-                        "prompt": intent or f"running /{canonical_name}",
-                        "agentId": str(agent_id),
-                    },
-                ))
+                on_progress({
+                    "type": "agent_progress",
+                    "message": prompt_messages[0],
+                    "prompt": intent or f"running /{canonical_name}",
+                    "agentId": str(agent_id),
+                })
             except Exception:  # noqa: BLE001
                 log.exception("skill_fork_progress_forward_failed")
 
