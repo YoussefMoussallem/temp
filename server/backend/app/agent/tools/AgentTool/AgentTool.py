@@ -41,7 +41,6 @@ from ...services.agents import (
 )
 from ...Tool import (
     BaseTool,
-    ToolProgress,
     ToolResult,
     ToolUseContext,
     ValidationError,
@@ -232,15 +231,17 @@ def _emit_agent_progress_for_message(
     if not has_qualifying:
         return
     try:
-        on_progress(ToolProgress(
-            toolUseID=tool_use_id,
-            data={
-                "type": "agent_progress",
-                "message": event,
-                "prompt": prompt,
-                "agentId": agent_id,
-            },
-        ))
+        # Pass a plain dict — query_loop's on_progress wraps whatever
+        # we pass as the SSE event's ``data`` field. Wrapping in
+        # ToolProgress here would nest the payload one level deep
+        # (asdict on the dataclass) and the frontend's
+        # `progress.type === "agent_progress"` check would miss.
+        on_progress({
+            "type": "agent_progress",
+            "message": event,
+            "prompt": prompt,
+            "agentId": agent_id,
+        })
     except Exception:  # noqa: BLE001
         log.exception("agent_tool_progress_forward_failed")
 
@@ -504,15 +505,12 @@ class AgentToolImpl(BaseTool[AgentToolInput, dict]):
             )
             if first_user is not None:
                 try:
-                    on_progress(ToolProgress(
-                        toolUseID=my_tool_use_id,
-                        data={
-                            "type": "agent_progress",
-                            "message": first_user,
-                            "prompt": prompt,
-                            "agentId": str(agent_id),
-                        },
-                    ))
+                    on_progress({
+                        "type": "agent_progress",
+                        "message": first_user,
+                        "prompt": prompt,
+                        "agentId": str(agent_id),
+                    })
                 except Exception:  # noqa: BLE001
                     log.exception("agent_tool_progress_forward_failed")
 
