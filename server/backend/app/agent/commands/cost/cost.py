@@ -16,7 +16,7 @@ from importlib import import_module
 from typing import Any, cast
 
 from app_logger import get_logger
-from app.bridges import db_client
+from app.db import usage
 
 from ...types.command import Command
 
@@ -32,7 +32,7 @@ async def call(_args: str, ctx: Any) -> dict:
         }
 
     try:
-        result = await db_client.get_my_usage(authorization)
+        result = await usage.get_my_usage(authorization)
     except Exception as e:  # noqa: BLE001
         log.warning("get_my_usage failed: %s", e)
         result = None

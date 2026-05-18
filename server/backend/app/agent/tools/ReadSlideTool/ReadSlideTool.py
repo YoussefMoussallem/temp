@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import AliasChoices, BaseModel, Field
 
-from app.bridges import db_client
+from app.db import slides
 
 from ...Tool import (
     BaseTool,
@@ -86,7 +86,7 @@ class ReadSlideToolImpl(BaseTool[ReadSlideInput, str]):
             args if isinstance(args, ReadSlideInput) else ReadSlideInput(**args)
         )
 
-        slide = await db_client.get_slide(
+        slide = await slides.get_slide(
             context.authorization or "",
             parsed.slide_id,
         )

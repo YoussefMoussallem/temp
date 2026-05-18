@@ -39,7 +39,7 @@ from typing import Any, cast
 
 from app_logger import get_logger
 
-from app.bridges import db_client
+from app.db import messages
 
 from ...types.command import Command
 from ...utils.compact_boundary_marker import make_boundary_payload
@@ -66,7 +66,7 @@ async def _persist_boundary(ctx: Any, boundary: Any) -> None:
         )
         return
     try:
-        await db_client.append_message(
+        await messages.append_message(
             authorization,
             str(conversation_id),
             role="system",

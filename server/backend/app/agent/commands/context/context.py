@@ -16,7 +16,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any, cast
 
-from app.bridges import db_client
+from app.db import conversations
 
 from ...types.command import Command
 
@@ -74,7 +74,7 @@ async def call(_args: str, ctx: Any) -> dict:
     output_tokens = 0
     source = "approximate"
     if authorization and conversation_id:
-        conv = await db_client.get_conversation(authorization, conversation_id)
+        conv = await conversations.get_conversation(authorization, conversation_id)
         if conv:
             input_tokens = int(conv.get("total_input_tokens") or 0)
             output_tokens = int(conv.get("total_output_tokens") or 0)

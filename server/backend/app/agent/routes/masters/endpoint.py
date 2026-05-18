@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import Depends, Header, HTTPException, Request
 
-from app.bridges import db_client
+from app.db import masters
 from app.dependencies import CurrentUser, get_current_user
 from app.middleware.rate_limit import limiter, user_or_ip_key
 from app_logger import get_logger
@@ -186,7 +186,7 @@ async def masters_upload(
     fonts_payload = await _build_fonts_payload(font_uploads)
 
     try:
-        master = await db_client.create_master(
+        master = await masters.create_master(
             authorization,
             project_id,
             name=manifest.name,

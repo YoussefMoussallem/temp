@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.bridges import db_client
+from app.db import memories
 
 from ...Tool import (
     BaseTool,
@@ -120,7 +120,7 @@ class SaveUserMemoryToolImpl(BaseTool[SaveUserMemoryInput, str]):
             args if isinstance(args, SaveUserMemoryInput) else SaveUserMemoryInput(**args)
         )
 
-        saved = await db_client.upsert_user_memory(
+        saved = await memories.upsert_user_memory(
             context.authorization or "",
             context.user_id or "",
             slug=parsed.slug,

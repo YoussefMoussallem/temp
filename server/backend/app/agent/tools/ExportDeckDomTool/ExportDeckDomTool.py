@@ -30,7 +30,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app_logger import get_logger
-from app.bridges import db_client
+from app.db import slides
 
 from ...Tool import (
     BaseTool,
@@ -120,7 +120,7 @@ class ExportDeckDomToolImpl(BaseTool[ExportDeckDomInput, ExportDeckDomOutput]):
         if on_progress is not None:
             on_progress({"message": "Reading deck..."})
 
-        slides = await db_client.list_slides(
+        slides = await slides.list_slides(
             context.authorization or "",
             context.project_id or "",
         )

@@ -121,7 +121,7 @@ async def test_upload_happy_path_extracts_and_forwards(http_client):
 
     with (
         patch(
-            "app.bridges.db_client.create_master",
+            "app.db.masters.create_master",
             new=AsyncMock(return_value=fake_master),
         ) as mock_create,
         patch(
@@ -185,7 +185,7 @@ async def test_upload_passes_renderer_previews_through(http_client):
 
     with (
         patch(
-            "app.bridges.db_client.create_master",
+            "app.db.masters.create_master",
             new=AsyncMock(return_value={"id": "x"}),
         ) as mock_create,
         patch(
@@ -229,7 +229,7 @@ async def test_upload_with_fonts_forwards_to_db_client(http_client):
 
     with (
         patch(
-            "app.bridges.db_client.create_master",
+            "app.db.masters.create_master",
             new=AsyncMock(return_value={"id": "fake"}),
         ) as mock_create,
         patch(
@@ -280,7 +280,7 @@ async def test_upload_with_no_fonts_omits_field(http_client):
 
     with (
         patch(
-            "app.bridges.db_client.create_master",
+            "app.db.masters.create_master",
             new=AsyncMock(return_value={"id": "fake"}),
         ) as mock_create,
         patch(

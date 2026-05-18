@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.bridges import db_client
+from app.db import memories
 
 from ...Tool import (
     BaseTool,
@@ -66,7 +66,7 @@ class ListUserMemoriesToolImpl(BaseTool[ListUserMemoriesInput, str]):
         parent_message: Any,
         on_progress: Any | None = None,
     ) -> ToolResult[str]:
-        rows = await db_client.list_user_memories(
+        rows = await memories.list_user_memories(
             context.authorization or "",
             context.user_id or "",
         )

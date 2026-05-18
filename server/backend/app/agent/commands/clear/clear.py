@@ -17,7 +17,7 @@ from importlib import import_module
 from typing import Any, cast
 
 from app_logger import get_logger
-from app.bridges import db_client
+from app.db import messages
 
 from ...prompts import clear_system_prompt_sections
 from ...types.command import Command
@@ -38,7 +38,7 @@ async def call(_args: str, ctx: Any) -> dict:
         }
 
     try:
-        await db_client.clear_messages(authorization, conversation_id)
+        await messages.clear_messages(authorization, conversation_id)
     except Exception as e:  # noqa: BLE001
         log.warning("clear_messages failed for %s: %s", conversation_id, e)
         return {

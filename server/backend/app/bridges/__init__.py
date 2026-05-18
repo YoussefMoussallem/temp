@@ -13,7 +13,6 @@ file. Bridges should contain no business logic - just configuration
 plumbing and lightweight request/response shaping.
 
 Current bridges:
-  * ``db_client``       - HTTP client for the db-service microservice.
   * ``langfuse_bridge`` - Langfuse tracing init + hook registration.
   * ``litellm_bridge``  - Model metadata + cost lookup via LiteLLM proxy.
   * ``logging_bridge``  - Feeds app settings into ``app_logger``.

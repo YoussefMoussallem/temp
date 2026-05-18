@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.bridges import db_client
+from app.db import memories
 
 from ...Tool import (
     BaseTool,
@@ -69,7 +69,7 @@ class ListProjectMemoriesToolImpl(BaseTool[ListProjectMemoriesInput, str]):
         parent_message: Any,
         on_progress: Any | None = None,
     ) -> ToolResult[str]:
-        rows = await db_client.list_project_memories(
+        rows = await memories.list_project_memories(
             context.authorization or "",
             context.project_id or "",
         )

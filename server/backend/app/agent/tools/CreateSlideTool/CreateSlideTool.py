@@ -7,7 +7,7 @@ from typing import Any
 from app_logger import get_logger
 from pydantic import BaseModel, Field
 
-from app.bridges import db_client
+from app.db import slides
 
 from ...Tool import (
     BaseTool,
@@ -167,7 +167,7 @@ class CreateSlideToolImpl(BaseTool[CreateSlideInput, str]):
         parsed: CreateSlideInput = (
             args if isinstance(args, CreateSlideInput) else CreateSlideInput(**args)
         )
-        slide = await db_client.create_slide(
+        slide = await slides.create_slide(
             context.authorization or "",
             context.project_id or "",
             html=parsed.html,

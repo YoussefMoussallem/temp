@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.bridges import db_client
+from app.db import slides
 
 from ...Tool import (
     BaseTool,
@@ -73,7 +73,7 @@ class ListSlidesToolImpl(BaseTool[ListSlidesInput, str]):
         parsed: ListSlidesInput = (
             args if isinstance(args, ListSlidesInput) else ListSlidesInput(**args)
         )
-        slides = await db_client.list_slides(context.authorization or "", context.project_id or "")
+        slides = await slides.list_slides(context.authorization or "", context.project_id or "")
         summary = [
             {
                 "id": s["id"],

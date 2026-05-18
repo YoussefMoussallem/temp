@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import AliasChoices, BaseModel, Field
 
-from app.bridges import db_client
+from app.db import slides
 
 from ...Tool import (
     BaseTool,
@@ -71,7 +71,7 @@ class ReorderSlideToolImpl(BaseTool[ReorderSlideInput, str]):
         parsed: ReorderSlideInput = (
             args if isinstance(args, ReorderSlideInput) else ReorderSlideInput(**args)
         )
-        slides = await db_client.reorder_slide(
+        slides = await slides.reorder_slide(
             context.authorization or "",
             parsed.slide_id,
             after_slide_id=parsed.after_slide_id,

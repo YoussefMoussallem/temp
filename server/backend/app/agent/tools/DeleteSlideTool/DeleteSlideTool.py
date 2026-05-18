@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import AliasChoices, BaseModel, Field
 
-from app.bridges import db_client
+from app.db import slides
 
 from ...Tool import (
     BaseTool,
@@ -74,7 +74,7 @@ class DeleteSlideToolImpl(BaseTool[DeleteSlideInput, str]):
         parsed: DeleteSlideInput = (
             args if isinstance(args, DeleteSlideInput) else DeleteSlideInput(**args)
         )
-        slides = await db_client.delete_slide(
+        slides = await slides.delete_slide(
             context.authorization or "",
             parsed.slide_id,
         )

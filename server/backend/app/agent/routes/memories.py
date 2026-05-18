@@ -14,7 +14,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
-from app.bridges import db_client
+from app.db import memories
 from app.dependencies import CurrentUser, get_current_user
 from app.middleware.rate_limit import limiter, user_or_ip_key
 from app_logger import get_logger
@@ -71,9 +71,9 @@ async def memory_from_text(
     # Fetch the existing index so the LLM can detect supersession /
     # contradiction and reuse a slug rather than create a sibling.
     if body.scope == "user":
-        existing = await db_client.list_user_memories(authorization, user.user_id)
+        existing = await memories.list_user_memories(authorization, user.user_id)
     else:
-        existing = await db_client.list_project_memories(
+        existing = await memories.list_project_memories(
             authorization,
             body.project_id or "",
         )
@@ -93,13 +93,13 @@ async def memory_from_text(
 
     try:
         if body.scope == "user":
-            saved = await db_client.upsert_user_memory(
+            saved = await memories.upsert_user_memory(
                 authorization,
                 user.user_id,
                 **structured,
             )
         else:
-            saved = await db_client.upsert_project_memory(
+            saved = await memories.upsert_project_memory(
                 authorization,
                 body.project_id or "",
                 **structured,

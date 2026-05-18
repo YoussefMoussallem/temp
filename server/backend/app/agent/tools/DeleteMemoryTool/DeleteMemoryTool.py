@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.bridges import db_client
+from app.db import memories
 
 from ...Tool import (
     BaseTool,
@@ -86,13 +86,13 @@ class DeleteMemoryToolImpl(BaseTool[DeleteMemoryInput, str]):
         )
 
         if parsed.scope == "user":
-            await db_client.delete_user_memory(
+            await memories.delete_user_memory(
                 context.authorization or "",
                 context.user_id or "",
                 parsed.slug,
             )
         else:
-            await db_client.delete_project_memory(
+            await memories.delete_project_memory(
                 context.authorization or "",
                 context.project_id or "",
                 parsed.slug,

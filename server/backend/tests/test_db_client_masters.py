@@ -19,7 +19,7 @@ from unittest.mock import patch, AsyncMock, MagicMock
 
 import pytest
 
-from app.bridges import db_client
+from app.db import masters
 
 pytestmark = pytest.mark.asyncio
 
@@ -51,7 +51,7 @@ async def test_list_masters_url_and_returns_payload():
     resp = _mock_response(200, {"masters": [{"id": "abc"}]})
     p, client = _patch_async_client(resp)
     with p:
-        out = await db_client.list_masters("Bearer xyz", "proj-id")
+        out = await masters.list_masters("Bearer xyz", "proj-id")
     assert out == [{"id": "abc"}]
     args, kwargs = client.get.call_args
     assert args[0].endswith("/api/projects/proj-id/masters")
@@ -62,7 +62,7 @@ async def test_create_master_posts_metadata():
     resp = _mock_response(200, {"id": "m1", "name": "T"})
     p, client = _patch_async_client(resp)
     with p:
-        out = await db_client.create_master(
+        out = await masters.create_master(
             "Bearer xyz",
             "proj-id",
             name="T",
@@ -83,7 +83,7 @@ async def test_get_master_pptx_returns_bytes():
     resp = _mock_response(200, content=b"PK\x03\x04 fake")
     p, client = _patch_async_client(resp)
     with p:
-        data = await db_client.get_master_pptx("Bearer x", "m-1")
+        data = await masters.get_master_pptx("Bearer x", "m-1")
     assert data == b"PK\x03\x04 fake"
 
 
@@ -91,7 +91,7 @@ async def test_activate_master_posts_to_activate_path():
     resp = _mock_response(200, {"active_master_id": "m-1"})
     p, client = _patch_async_client(resp)
     with p:
-        out = await db_client.activate_master("Bearer x", "m-1")
+        out = await masters.activate_master("Bearer x", "m-1")
     assert out["active_master_id"] == "m-1"
     args, _ = client.post.call_args
     assert args[0].endswith("/api/masters/m-1/activate")
@@ -101,7 +101,7 @@ async def test_delete_master_returns_none():
     resp = _mock_response(204)
     p, client = _patch_async_client(resp)
     with p:
-        out = await db_client.delete_master("Bearer x", "m-1")
+        out = await masters.delete_master("Bearer x", "m-1")
     assert out is None
     args, _ = client.delete.call_args
     assert args[0].endswith("/api/masters/m-1")
