@@ -149,12 +149,21 @@ def _normalize_messages_for_api(messages: list["Message"]) -> list[ProviderMessa
 # ============================================================================
 
 
-def _build_tools_dict(tools: Tools) -> list[dict] | None:
+async def _build_tools_dict(tools: Tools) -> list[dict] | None:
     """
     Convert agent Tools → list of dict tool schemas for the provider.
 
     Provider's mapper takes generic dicts with name/description/parameters and
     converts to provider-specific tool format (Anthropic / OpenAI / Gemini).
+
+    Description resolution order (per source TS parity — getToolDescription):
+      1. ``await tool.prompt(options)`` if the tool overrides it. This is
+         the dynamic surface tools like AgentTool use to build a per-call
+         description (live agent listing, MCP-requirement filtering, etc.).
+      2. ``tool.description_text`` static class attribute as a fallback.
+      3. Empty string as a last resort.
+
+    Async because (1) is async per the BaseTool interface.
     """
     if tools is None or len(tools) == 0:
         return None
@@ -162,10 +171,24 @@ def _build_tools_dict(tools: Tools) -> list[dict] | None:
     out: list[dict] = []
     for tool in tools:
         schema = tool.input_json_schema() or {"type": "object", "properties": {}}
+        # Try the dynamic prompt() first. Pass an options dict shaped like
+        # what tools that override prompt() expect (AgentTool reads
+        # ``agents`` and ``tools`` from it). Failure here demotes to the
+        # static fallback so a single broken tool doesn't blank every
+        # other tool's description.
+        description: str = ""
+        prompt_fn = getattr(tool, "prompt", None)
+        if callable(prompt_fn):
+            try:
+                description = await prompt_fn({"agents": [], "tools": list(tools)}) or ""
+            except Exception:
+                description = ""
+        if not description:
+            description = getattr(tool, "description_text", "") or ""
         out.append(
             {
                 "name": tool.name,
-                "description": getattr(tool, "description_text", "") or "",
+                "description": description,
                 "parameters": schema,
             }
         )
@@ -197,7 +220,7 @@ async def query_model_with_streaming(
     request = ChatRequest(
         model=model,
         messages=_normalize_messages_for_api(messages),
-        tools=_build_tools_dict(tools) if tools else None,
+        tools=(await _build_tools_dict(tools)) if tools else None,
         thinking=thinking,
     )
 

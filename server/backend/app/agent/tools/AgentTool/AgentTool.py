@@ -250,12 +250,46 @@ def _emit_agent_progress_for_message(
 # ============================================================================
 
 
+_STATIC_DESCRIPTION = (
+    "Launch a new subagent to handle complex, multi-step tasks autonomously. "
+    "Each agent runs in an isolated sub-loop with its own system prompt and "
+    "tool sandbox, then returns a single final message you can act on. "
+    "You cannot have a back-and-forth conversation with a running agent — "
+    "provide enough context in `prompt` for it to complete the task on its own.\n"
+    "\n"
+    "Available agent types:\n"
+    "  - general-purpose: broad multi-tool agent. Use for focused investigation "
+    "or delimited multi-step tasks that should run with full tool access.\n"
+    "  - Explore: read-only investigation specialist (ReadSlide, ListSlides, "
+    "WebSearch/WebFetch, memory reads). Use to locate slides or content "
+    "without mutating anything. Returns once.\n"
+    "  - Plan: planning specialist (read tools + TodoWrite + ExitPlanMode). "
+    "Use to draft an approach and submit it for approval before any changes "
+    "are made.\n"
+    "\n"
+    "Args:\n"
+    "  - description: 3-5 word summary of the task.\n"
+    "  - prompt: the actual task for the agent to perform. Include enough "
+    "context that the agent can run to completion without further input.\n"
+    "  - subagent_type: which agent to dispatch (one of the types above). "
+    "Defaults to general-purpose when omitted."
+)
+
+
 class AgentToolImpl(BaseTool[AgentToolInput, dict]):
     name = AGENT_TOOL_NAME
     aliases = [LEGACY_AGENT_TOOL_NAME]
     inputSchema = AgentToolInput
     maxResultSizeChars = 100_000
     searchHint = "delegate work to a subagent"
+    # Static fallback description shipped to the LLM via the tool-schema
+    # builder (claude.py:_build_tools_dict reads this attribute). The richer
+    # ``prompt()`` method below produces the same content dynamically (with
+    # MCP-requirement filtering applied); both are kept so callers that
+    # invoke prompt() get the live filtered listing, while the static
+    # attribute keeps the tool visible to providers that only consume
+    # description_text.
+    description_text = _STATIC_DESCRIPTION
 
     def is_enabled(self) -> bool:
         return True
@@ -308,8 +342,17 @@ class AgentToolImpl(BaseTool[AgentToolInput, dict]):
         """Filter active agents by:
           1. MCP requirements (each required server must be available)
         Then delegate to get_agent_tool_prompt for the actual prose.
+
+        When ``agents`` isn't supplied in options (e.g. when the tool-schema
+        builder calls us without knowing the registry), fall back to
+        ``merge_agent_definitions()`` so the LLM still gets a live agent
+        listing. Callers that DO know the registry should pass it so the
+        per-spec ``allowedAgentTypes`` restriction can apply.
         """
-        agents = options.get("agents") or []
+        agents = options.get("agents")
+        if not agents:
+            from ...services.agents import merge_agent_definitions  # lazy
+            agents = merge_agent_definitions().get("activeAgents", [])
         tools = options.get("tools") or []
         allowed_agent_types = options.get("allowed_agent_types")
 
