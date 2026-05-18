@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.agent.router import _infer_font_meta
+from app.agent.routes.masters import _infer_font_meta
 
 
 @pytest.mark.parametrize(
