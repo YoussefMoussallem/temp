@@ -162,7 +162,7 @@ def _check_required_mcp_servers(
                 if srv.connected and srv.name not in available_servers:
                     available_servers.append(srv.name)
         except Exception as exc:  # noqa: BLE001
-            log.warning("agent_tool_mcp_lookup_failed", error=str(exc))
+            log.warning("agent_tool_mcp_lookup_failed", extra={"error": str(exc)})
 
     if has_required_mcp_servers(selected_agent, available_servers):
         return
@@ -555,10 +555,12 @@ class AgentToolImpl(BaseTool[AgentToolInput, dict]):
             }
             log.info(
                 "agent_tool_pause",
-                agentType=selected_agent.get("agentType"),
-                agentId=str(agent_id),
-                pendingCount=len(pending_tool_uses),
-                accumulatedMessageCount=len(agent_messages),
+                extra={
+                    "agentType": selected_agent.get("agentType"),
+                    "agentId": str(agent_id),
+                    "pendingCount": len(pending_tool_uses),
+                    "accumulatedMessageCount": len(agent_messages),
+                },
             )
             raise SubagentAwaitingFrontendTools(
                 frame=frame, tool_uses=pending_tool_uses
@@ -583,10 +585,12 @@ class AgentToolImpl(BaseTool[AgentToolInput, dict]):
         }
         log.info(
             "agent_tool_complete",
-            agentType=selected_agent.get("agentType"),
-            agentId=str(agent_id),
-            messageCount=len(agent_messages),
-            tokens=result_body.get("totalTokens"),
+            extra={
+                "agentType": selected_agent.get("agentType"),
+                "agentId": str(agent_id),
+                "messageCount": len(agent_messages),
+                "tokens": result_body.get("totalTokens"),
+            },
         )
         return ToolResult(data=sync_output)
 
@@ -629,8 +633,10 @@ class AgentToolImpl(BaseTool[AgentToolInput, dict]):
         if selected_agent is None:
             log.warning(
                 "agent_tool_resume_unknown_agent_type",
-                agentType=agent_type,
-                agentId=agent_id_str,
+                extra={
+                    "agentType": agent_type,
+                    "agentId": agent_id_str,
+                },
             )
             # Migrate the frame's pending tool_use_ids to the consumed-
             # ledger so the next /turn's router strips the tool_results
@@ -681,9 +687,11 @@ class AgentToolImpl(BaseTool[AgentToolInput, dict]):
 
         log.info(
             "agent_tool_resume",
-            agentType=agent_type,
-            agentId=agent_id_str,
-            accumulatedMessageCount=len(accumulated_messages),
+            extra={
+                "agentType": agent_type,
+                "agentId": agent_id_str,
+                "accumulatedMessageCount": len(accumulated_messages),
+            },
         )
 
         # Resume replay: forward the accumulated history via on_progress so
@@ -742,10 +750,12 @@ class AgentToolImpl(BaseTool[AgentToolInput, dict]):
             }
             log.info(
                 "agent_tool_repause",
-                agentType=agent_type,
-                agentId=agent_id_str,
-                pendingCount=len(pending_tool_uses),
-                accumulatedMessageCount=len(new_frame["accumulatedMessages"]),
+                extra={
+                    "agentType": agent_type,
+                    "agentId": agent_id_str,
+                    "pendingCount": len(pending_tool_uses),
+                    "accumulatedMessageCount": len(new_frame["accumulatedMessages"]),
+                },
             )
             raise SubagentAwaitingFrontendTools(
                 frame=new_frame, tool_uses=pending_tool_uses
@@ -772,10 +782,12 @@ class AgentToolImpl(BaseTool[AgentToolInput, dict]):
         }
         log.info(
             "agent_tool_complete_after_resume",
-            agentType=agent_type,
-            agentId=agent_id_str,
-            messageCount=len(full_messages),
-            tokens=result_body.get("totalTokens"),
+            extra={
+                "agentType": agent_type,
+                "agentId": agent_id_str,
+                "messageCount": len(full_messages),
+                "tokens": result_body.get("totalTokens"),
+            },
         )
         # Bounded-edge cleanup: when this resume drained the last frame,
         # the consumed-ids ledger is no longer protecting any active

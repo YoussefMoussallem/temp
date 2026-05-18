@@ -131,8 +131,10 @@ async def run_agent(
         except Exception as exc:  # noqa: BLE001
             log.warning(
                 "run_agent_system_prompt_failed",
-                agentType=agent_definition.get("agentType"),
-                error=str(exc),
+                extra={
+                    "agentType": agent_definition.get("agentType"),
+                    "error": str(exc),
+                },
             )
 
     # Resolve effective model: tool-specified > agent.model > parent's.
@@ -176,13 +178,15 @@ async def run_agent(
 
     log.info(
         "run_agent_dispatch",
-        agentType=agent_definition.get("agentType"),
-        agentId=str(agent_id),
-        toolCount=len(resolved.resolved_tools),
-        promptMessageCount=len(prompt_messages),
-        description=description,
-        resolvedModel=resolved_model,
-        parentModel=parent_main_loop_model,
+        extra={
+            "agentType": agent_definition.get("agentType"),
+            "agentId": str(agent_id),
+            "toolCount": len(resolved.resolved_tools),
+            "promptMessageCount": len(prompt_messages),
+            "description": description,
+            "resolvedModel": resolved_model,
+            "parentModel": parent_main_loop_model,
+        },
     )
 
     started_at_ms = int(time.time() * 1000)
@@ -192,7 +196,9 @@ async def run_agent(
     finally:
         log.info(
             "run_agent_complete",
-            agentType=agent_definition.get("agentType"),
-            agentId=str(agent_id),
-            durationMs=int(time.time() * 1000) - started_at_ms,
+            extra={
+                "agentType": agent_definition.get("agentType"),
+                "agentId": str(agent_id),
+                "durationMs": int(time.time() * 1000) - started_at_ms,
+            },
         )
